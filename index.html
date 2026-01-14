@@ -397,12 +397,20 @@
       <button type="button" id="exportXlsxBtn">Export All Years in Range (XLSX)</button>
     </div>
     <small class="hint">Exports preserve Name/Step/Column/FTE and add a <strong>Salary</strong> column (FTE-adjusted).</small>
+    <small class="hint">Gross salary exported (FTE-adjusted). Uses selected scenario’s raise parameters.</small>
   </div>
 
   <div id="renderArea"></div>
 </div>
 
+<script src="salary-math.js"></script>
 <script>
+const {
+  stepForYear,
+  computeCellValue,
+  computeSalaryAt,
+  computeHealthInsuranceNet
+} = window.SalaryMath || {};
 /* ------------------------------ Percent dropdown builder ------------------------------ */
 (function buildPctDropdowns(){
   const ids = ["year1","year2","year3","year4","year5"];
@@ -515,6 +523,7 @@ const baseTable = [
   {step:21,TA:null,BA:113186, BA10:116053, BA20:118920, BA30:121791, BA40:124658, BA50:127529, BA60:130399, M:127529, M10:130399, M20:133265, M30:136134, M40:139003, M50:141872},
   {step:22,TA:null,BA:116315, BA10:119183, BA20:122050, BA30:124919, BA40:127790, BA50:130659, BA60:133527, M:130659, M10:133527, M20:136395, M30:139264, M40:142133, M50:145000}
 ];
+window.baseTable = baseTable;
 
 /* ------------------------------ State & helpers ------------------------------ */
 let roster=[];
@@ -565,20 +574,6 @@ function getParamsOrWarn(choice){
   return { params: resolveScenarioParams(choice), warn:null };
 }
 
-function stepForYear(baseStep, yearIdx){
-  const offset = Math.max(0, (yearIdx|0) - 1);
-  return Math.max(1, Math.min(22, (baseStep|0) + offset));
-}
-function computeCellValue(base, yearIdx, paramsOverride){
-  if(yearIdx===0) return base;
-  let v=base;
-  for(let j=1;j<=yearIdx;j++){
-    const r = paramsOverride ? (paramsOverride.increases?.[j]?.rate ?? 0) : parseFloat(document.getElementById("year"+j).value);
-    const f = paramsOverride ? (paramsOverride.increases?.[j]?.flat ?? 0) : (parseFloat(document.getElementById("flat"+j).value)||0);
-    v=(v+f)*(1+r); // flat first, then %
-  }
-  return v;
-}
 function getContributionPct(year, paramsOverride){
   const key = "contributionY"+year;
   if(paramsOverride && paramsOverride.hi_contrib && paramsOverride.hi_contrib[year]!=null) return +paramsOverride.hi_contrib[year];
@@ -614,13 +609,14 @@ function teacherBudgetForYear(y, paramsOverride){
   return +(baseTeacher + realloc).toFixed(2);
 }
 function btaRosterCostForYear(y, paramsOverride){
+  const params = paramsOverride || readUIParams();
   const adderPct = (paramsOverride ? +paramsOverride.adder_pct : parseFloat(document.getElementById("adderPct").value||"13"))/100;
   const cost = roster.reduce((sum,r)=>{
     const st=stepForYear(+r.Step||1, y);
     const row=baseTable.find(x=>x.step===st);
     const base=row?row[r.Column]:null;
     if(base==null) return sum;
-    const sal=computeCellValue(base,y, paramsOverride)*(+r.FTE||1);
+    const sal=computeCellValue(base,y, params)*(+r.FTE||1);
     return sum + sal;
   },0);
   return +((cost*(1+adderPct)).toFixed(2));
@@ -632,6 +628,7 @@ function toInitials(name){
   return String(name).split(/\s+/).filter(Boolean).map(part=>part[0].toUpperCase()).join('');
 }
 function buildRosterIndex(years, paramsOverride){
+  const params = paramsOverride || readUIParams();
   const idx = new Map();
   years.forEach(y=>{
     roster.forEach(r=>{
@@ -641,7 +638,7 @@ function buildRosterIndex(years, paramsOverride){
       const row=baseTable.find(bt=>bt.step===step);
       const base=row?row[col]:null;
       if(base==null) return;
-      const sal = computeCellValue(base,y, paramsOverride)*(+r.FTE||1);
+      const sal = computeCellValue(base,y, params)*(+r.FTE||1);
       const cur = idx.get(key) || {count:0, fte:0, names:[], total:0};
       cur.count += 1;
       cur.fte += (+r.FTE||1);
@@ -671,6 +668,7 @@ function bannerCard(year, tb, cost){
 }
 
 function generateTableHtmlSingle(years, paramsOverride, label){
+  const params = paramsOverride || readUIParams();
   const rosterIndex = buildRosterIndex(years, paramsOverride);
 
   let pieces='';
@@ -719,13 +717,13 @@ function generateTableHtmlSingle(years, paramsOverride, label){
         if(r[col]==null){
           pieces += `<td ${cell} class="soft" data-col="${col}">N/A</td>`;
         }else{
-          const curr=+(computeCellValue(r[col],year, paramsOverride).toFixed(2));
+          const curr=+(computeCellValue(r[col],year, params).toFixed(2));
           const y0=+(r[col].toFixed(2));
           const y0diff=+(curr-y0).toFixed(2);
 
           const pct=getContributionPct(year, paramsOverride);
-          const indNet=+((curr-(IND_PREM_YEAR*pct))).toFixed(2);
-          const famNet=+((curr-(FAM_PREM_YEAR*pct))).toFixed(2);
+          const indNet=computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
+          const famNet=computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
 
           const key = `${year}|${r.step}|${col}`;
           const meta = rosterIndex.get(key) || {count:0, fte:0, names:[], total:0};
@@ -1018,19 +1016,15 @@ function generateBoardPdf(payload, years){
 
 /* ------------------------------ Roster export helpers ------------------------------ */
 function setRosterStatus(msg){ document.getElementById("rosterStatus").textContent = msg; }
-function computeSalaryAt(step,col,fte,year, paramsOverride){
-  const row=baseTable.find(r=>r.step===Math.max(1,Math.min(step,22)));
-  const base=row?row[col]:null; if(base==null) return 0;
-  return +(computeCellValue(base,year, paramsOverride)*(fte||1)).toFixed(2);
-}
 
 /* ------------------------------ Roster export ------------------------------ */
 function exportRosterCSV(year, paramsOverride, suffix){
   if(!roster.length){ alert("Load a roster first."); return; }
+  const params = paramsOverride || readUIParams();
   const lines = [["Name","Step","Column","FTE","Salary_Y"+year]];
   roster.forEach(r=>{
     const st=stepForYear(+r.Step||1, year);
-    const sal=computeSalaryAt(st,r.Column,+r.FTE||1,year, paramsOverride);
+    const sal=computeSalaryAt(st,r.Column,+r.FTE||1,year, params);
     lines.push([r.Name,st,r.Column,(+r.FTE||1),sal]);
   });
   const csv = lines.map(row=>row.map(v=>{
@@ -1045,6 +1039,39 @@ function exportRosterCSV(year, paramsOverride, suffix){
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
+function exportRosterCSVBoth(year){
+  if(!roster.length){ alert("Load a roster first."); return; }
+  const hasA = !!scenarios.A;
+  const hasB = !!scenarios.B;
+  const missing = [];
+  if(!hasA) missing.push("Scenario A");
+  if(!hasB) missing.push("Scenario B");
+  if(missing.length){
+    alert(`Missing: ${missing.join(" and ")}. Exporting available scenario(s) only.`);
+  }
+  if(!hasA && !hasB){
+    alert("Scenario A and Scenario B are empty. Save UI → A/B first.");
+    return;
+  }
+  const lines = [["Name","Step","Column","FTE","Salary_A","Salary_B"]];
+  roster.forEach(r=>{
+    const st=stepForYear(+r.Step||1, year);
+    const salA = hasA ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.A) : "";
+    const salB = hasB ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.B) : "";
+    lines.push([r.Name,st,r.Column,(+r.FTE||1),salA,salB]);
+  });
+  const csv = lines.map(row=>row.map(v=>{
+    const s=String(v ?? "");
+    return (s.includes(",")||s.includes('"')||s.includes("\n"))?('"'+s.replace(/"/g,'""')+'"'):s;
+  }).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`RosterUpdated_Y${year}_A_B.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
 function exportAllYearsXLSX(years, scenarioChoice){
   if(!roster.length){ alert("Load a roster first."); return; }
   if(typeof XLSX==="undefined"){ alert("XLSX library not loaded yet."); return; }
@@ -1052,10 +1079,11 @@ function exportAllYearsXLSX(years, scenarioChoice){
   const wb=XLSX.utils.book_new();
 
   const addScenarioSheets = (label, paramsOverride)=>{
+    const params = paramsOverride || readUIParams();
     years.forEach(y=>{
       const rows=roster.map(r=>{
         const st=stepForYear(+r.Step||1, y);
-        const sal=computeSalaryAt(st,r.Column,+r.FTE||1,y, paramsOverride);
+        const sal=computeSalaryAt(st,r.Column,+r.FTE||1,y, params);
         return {Name:r.Name,Step:st,Column:r.Column,FTE:+r.FTE||1,Salary:sal};
       });
       const ws=XLSX.utils.json_to_sheet(rows,{header:["Name","Step","Column","FTE","Salary"]});
@@ -1064,11 +1092,15 @@ function exportAllYearsXLSX(years, scenarioChoice){
   };
 
   if(scenarioChoice==="both"){
-    const warnA = (!scenarios.A) ? "Scenario A empty—save first." : null;
-    const warnB = (!scenarios.B) ? "Scenario B empty—save first." : null;
-    if(warnA || warnB){ alert([warnA,warnB].filter(Boolean).join("\n")); return; }
-    addScenarioSheets("A", scenarios.A);
-    addScenarioSheets("B", scenarios.B);
+    const missing = [];
+    if(!scenarios.A) missing.push("Scenario A");
+    if(!scenarios.B) missing.push("Scenario B");
+    if(missing.length){
+      alert(`Missing: ${missing.join(" and ")}. Exporting available scenario(s) only.`);
+    }
+    if(scenarios.A) addScenarioSheets("A", scenarios.A);
+    if(scenarios.B) addScenarioSheets("B", scenarios.B);
+    if(!scenarios.A && !scenarios.B) return;
   } else if(scenarioChoice==="A"){
     if(!scenarios.A){ alert("Scenario A is empty. Save UI → A first."); return; }
     addScenarioSheets("A", scenarios.A);
@@ -1155,9 +1187,7 @@ document.getElementById("exportCsvBtn").addEventListener("click", () => {
   const scenarioChoice = document.getElementById("exportScenario").value;
 
   if (scenarioChoice === "both") {
-    if(!scenarios.A || !scenarios.B){ alert("Both requires Scenario A and Scenario B saved."); return; }
-    exportRosterCSV(y, scenarios.A, "_A");
-    exportRosterCSV(y, scenarios.B, "_B");
+    exportRosterCSVBoth(y);
     return;
   }
 
@@ -1203,14 +1233,15 @@ document.getElementById("sl_btn").addEventListener("click", () => {
   if (isNaN(stBase) || stBase < 1 || stBase > 22) { out.textContent = "Enter step 1–22."; return; }
 
   const renderOne = (label, paramsOverride) => {
+    const params = paramsOverride || readUIParams();
     const st = stepForYear(stBase, y);
     const row = baseTable.find(r => r.step === st);
     if (!row || row[sc] == null) return `<div><strong>${label}</strong>: No data for that step/column.</div>`;
 
-    const curr = computeCellValue(row[sc], y, paramsOverride);
+    const curr = computeCellValue(row[sc], y, params);
     const pct = getContributionPct(y, paramsOverride);
-    const indNet = curr - (IND_PREM_YEAR * pct);
-    const famNet = curr - (FAM_PREM_YEAR * pct);
+    const indNet = computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
+    const famNet = computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
 
     return `
       <div style="margin-top:6px">
@@ -1226,11 +1257,26 @@ document.getElementById("sl_btn").addEventListener("click", () => {
   };
 
   if (scenarioChoice === "both") {
-    if(!scenarios.A || !scenarios.B){
-      out.textContent = "Both requires Scenario A and Scenario B saved (use Save UI → A and Save UI → B).";
+    const parts = [];
+    const missing = [];
+    if (scenarios.A) {
+      parts.push(renderOne("Scenario A", scenarios.A));
+    } else {
+      missing.push("Scenario A");
+    }
+    if (scenarios.B) {
+      parts.push(renderOne("Scenario B", scenarios.B));
+    } else {
+      missing.push("Scenario B");
+    }
+    if (missing.length) {
+      parts.unshift(`<div class="soft">Missing: ${missing.join(" and ")}. Save via “Save UI → A/B” to enable.</div>`);
+    }
+    if (!parts.length) {
+      out.textContent = "Scenario A and Scenario B are empty. Save UI → A/B first.";
       return;
     }
-    out.innerHTML = renderOne("Scenario A", scenarios.A) + renderOne("Scenario B", scenarios.B);
+    out.innerHTML = parts.join("");
     return;
   }
 
@@ -1275,6 +1321,7 @@ loadScenarios();
 /* ------------------------------ AI helper builders (for Bee) ------------------------------ */
 function buildSalaryScheduleForAllYears(maxYear = 5) {
   const schedule = {};
+  const params = readUIParams();
   for (let y = 0; y <= maxYear; y++) {
     const yearTable = {};
     baseTable.forEach(row => {
@@ -1283,7 +1330,7 @@ function buildSalaryScheduleForAllYears(maxYear = 5) {
       COLS.forEach(col => {
         const base = row[col];
         if (base == null) return;
-        const sal = computeCellValue(base, y);
+        const sal = computeCellValue(base, y, params);
         cols[col] = +sal.toFixed(2);
       });
       yearTable[step] = cols;
@@ -1294,13 +1341,14 @@ function buildSalaryScheduleForAllYears(maxYear = 5) {
 }
 function buildRosterDerivedForAllYears(maxYear = 5) {
   const result = {};
+  const params = readUIParams();
   for (let y = 0; y <= maxYear; y++) {
     result[y] = roster.map(r => {
       const baseStep = +r.Step || 1;
       const effStep = stepForYear(baseStep, y);
       const col = r.Column;
       const fte = +r.FTE || 1;
-      const salary = computeSalaryAt(effStep, col, fte, y);
+      const salary = computeSalaryAt(effStep, col, fte, y, params);
       return { Name: r.Name, baseStep, year: y, step: effStep, Column: col, FTE: fte, salary };
     });
   }
