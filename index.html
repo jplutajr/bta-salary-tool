@@ -561,6 +561,22 @@ let lastSalaryPayload = null;
 /* scenario storage */
 const scenarioKey = "bta_salary_scenarios_v1";
 let scenarios = { A:null, B:null };
+function updateScenarioStatus(){
+  const el = document.getElementById("scenarioStatus");
+  const hasA = !!(scenarios && scenarios.A);
+  const hasB = !!(scenarios && scenarios.B);
+
+  if (el) {
+    el.textContent = `A: ${hasA ? "saved" : "empty"} · B: ${hasB ? "saved" : "empty"}`;
+  }
+
+  const compare = document.getElementById("compareOnGenerate");
+  if (compare) {
+    // Auto-check only if both exist AND user hasn't manually toggled it before
+    if (hasA && hasB && compare.dataset.touched !== "1") compare.checked = true;
+    if (!(hasA && hasB)) compare.checked = false;
+  }
+}
 
 function saveScenarios(){
   try{ localStorage.setItem(scenarioKey, JSON.stringify(scenarios)); }catch(e){}
