@@ -56,11 +56,15 @@
     z-index:1
   }
 
-  th,td{
-    border:1px solid var(--line);
-    padding:6px;
-    font-size:.85rem;
-    vertical-align:top;
+ th,td{
+  border: 1px solid #cbd5e0 !important;
+  padding:6px;
+  font-size:.85rem;
+  vertical-align:top;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
     /* KEY: prevent spill into neighboring cells */
     white-space:nowrap;
@@ -1168,9 +1172,12 @@ function updateBuildInfo(){
       systemSelf.classList.toggle("ok", systemOk);
       systemSelf.classList.toggle("error", !systemOk);
     } else {
-      systemSelf.textContent = "Self-check failed: unavailable";
-      systemSelf.classList.add("error");
-    }
+  // Self-check is optional. If missing, do NOT show it as an error.
+  systemSelf.textContent = "n/a";
+  systemSelf.classList.remove("error");
+  systemSelf.classList.remove("ok");
+}
+
   }
   if(versionEl) versionEl.textContent = BUILD_VERSION;
   if(timeEl) timeEl.textContent = BUILD_TIME;
