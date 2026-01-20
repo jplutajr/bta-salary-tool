@@ -202,27 +202,24 @@
 </div>
 
   <div class="container">
-  <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
-    <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
-  <div class="card" id="systemStatus" style="margin:8px 0">
-    <div style="font-weight:700">System Status</div>
-    <div class="soft">Build Time: <span id="systemBuildTime">unknown</span></div>
-    <div class="soft">Version: <span id="systemVersion">unknown</span></div>
-    <div class="soft">Self-check: <span id="systemSelfCheck">unknown</span></div>
-  </div>
-  <div id="bootStatus" class="boot-status">Boot Status: Checking…</div>
-  <div class="card" id="buildInfo" style="margin:8px 0">
-    <div style="font-weight:700">Build Info</div>
-    <div class="soft">Version: <span id="buildVersion"></span></div>
-    <div class="soft">Build Time: <span id="buildTime"></span></div>
-    <div class="soft">Self-check: <span id="buildSelfCheck"></span></div>
-  </div>
-  <div class="row">
-    <button type="button" id="selfTestBtn">Run Self-Test</button>
-    <span id="selfTestStatus" class="soft"></span>
-  </div>
+ <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
+<p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
 
-  <div class="form-container">
+<!-- Visible System Status -->
+<div class="sys-status" id="systemStatusCard">
+  <div class="sys-left">
+    <div class="sys-title">System Status</div>
+    <div class="sys-small" id="systemStatusText">Checking…</div>
+  </div>
+  <div class="sys-left" style="align-items:flex-end;text-align:right">
+    <div class="sys-small">Build</div>
+    <div class="mono sys-small" id="buildTimeText">loading…</div>
+    <div class="sys-pill" id="libStatusPill">libs</div>
+  </div>
+</div>
+
+<div class="form-container">
+
     <div class="form-column">
 
       <fieldset>
