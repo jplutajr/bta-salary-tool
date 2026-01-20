@@ -8,11 +8,12 @@
 <style>
   :root{
     --ink:#1f2937; --muted:#475569; --green:#2f855a; --red:#c53030;
-    --band:#2d3748; --bandText:#fff; --panel:#f8fafc; --line:#cbd5e0;
+    --band:#0f172a; --bandText:#fff; --panel:#f8fafc; --line:#cbd5e0;
   }
   body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:18px;background:#f5f5f5;color:var(--ink)}
   .container{max-width:1200px;margin:auto;background:#fff;padding:18px 18px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:10px}
   h2{margin:0 0 8px}
+  h3{margin:10px 0 6px}
   .form-container{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px}
   .form-column{flex:1 1 46%;min-width:320px}
   fieldset{border:1px solid #e2e8f0;padding:10px 12px;border-radius:8px;background:#fafafa}
@@ -23,10 +24,46 @@
   input[type="number"],input[type="text"],select,textarea{width:100%;padding:6px;border:1px solid #cbd5e0;border-radius:6px}
   button{padding:8px 12px;border:none;border-radius:6px;background:#334155;color:#fff;cursor:pointer}
   button:hover{background:#0f172a}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0;align-items:flex-end}
+  .soft{color:var(--muted);font-size:.9rem}
+  .ok{color:var(--green)} .bad{color:var(--red)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;background:#e2e8f0;color:#111827;}
+
   .roster-card{margin-top:12px;padding:12px;border:1px solid #e2e8f0;background:#fcfcfc;border-radius:8px}
-  .roster-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .roster-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
   .lookup-card{margin-top:14px;padding:12px;border:1px solid #e2e8f0;background:#fafafa;border-radius:8px}
   #renderArea{margin-top:16px}
+
+  /* =========================
+     SYSTEM STATUS (visible)
+     ========================= */
+  .sys-status{
+    margin:12px 0;
+    padding:10px 12px;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    background:#fafafa;
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .sys-left{display:flex;flex-direction:column;gap:2px}
+  .sys-title{font-weight:800}
+  .sys-small{font-size:.85rem;color:var(--muted)}
+  .sys-pill{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:.78rem;
+    font-weight:800;
+    background:#e2e8f0;
+    color:#0f172a;
+  }
+  .sys-pill.ok{background:#dcfce7;color:#14532d;border:1px solid #bbf7d0}
+  .sys-pill.bad{background:#fee2e2;color:#7f1d1d;border:1px solid #fecaca}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
 
   /* =========================
      TABLE FIX (NO SQUISH / NO SPILL)
@@ -39,14 +76,11 @@
     border-radius:10px;
     background:#fff;
   }
-
-  /* Make the table as wide as it needs, then scroll horizontally */
   table{
     border-collapse:collapse;
-    width:max-content;     /* KEY: stop squeezing */
-    table-layout:auto;     /* KEY: stop forced equal-width columns */
+    width:max-content;     /* stop squeezing */
+    table-layout:auto;     /* stop forced equal-width columns */
   }
-
   thead th{
     position:sticky;
     top:0;
@@ -55,49 +89,40 @@
     font-size:.9rem;
     z-index:1
   }
-
   th,td{
     border:1px solid var(--line);
     padding:6px;
     font-size:.85rem;
     vertical-align:top;
-
-    /* KEY: prevent spill into neighboring cells */
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
   }
-
-  /* Give data columns a readable minimum width */
   th[data-col], td[data-col]{ min-width: 98px; }
   th:first-child, td:first-child{ min-width: 56px; } /* step column */
 
   td .main{
     white-space:nowrap;
-    font-weight:700;
+    font-weight:800;
     color:#b7791f;
     display:block;
     overflow:hidden;
     text-overflow:ellipsis;
     font-size:.85rem
   }
-
   .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15;word-break:break-word}
   .detail.show{display:block}
-  .ok{color:var(--green)}
-  .bad{color:var(--red)}
+
+  /* Gold shading for cells that have roster staff */
+  .cell-has-roster{ background:#facc15 !important; }
+  .cell-has-roster .main{ color:#78350f; }
+
   .card{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff}
   .banner{border-left:10px solid #999;background:#fff;padding:10px 12px;border-radius:8px;margin-bottom:12px}
   .banner.pass{border-color:var(--green)}
   .banner.fail{border-color:var(--red)}
   .kvs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px;align-items:center}
-  .row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
-  .soft{color:var(--muted);font-size:.9rem}
-
-  /* Gold shading for cells that have roster staff */
-  .cell-has-roster{ background:#facc15 !important; }
-  .cell-has-roster .main{ color:#78350f; }
 
   /* Compare layout */
   .compare-wrap{
@@ -110,37 +135,11 @@
     display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
     padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;margin:8px 0 12px;
   }
-  .pill{
-    display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;
-    background:#e2e8f0;color:#111827;
-  }
 
-  /* SYSTEM STATUS */
-  .sysbar{
-    margin:6px 0 12px;
-    padding:10px 12px;
-    border:1px solid #e2e8f0;
-    border-radius:10px;
-    background:#fff;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    align-items:center;
-    justify-content:space-between;
-  }
-  .sysleft{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .sysdot{
-    width:10px;height:10px;border-radius:999px;background:#94a3b8;display:inline-block
-  }
-  .sysdot.ok{background:#22c55e}
-  .sysdot.bad{background:#ef4444}
-  .sysmsg{font-size:.9rem;color:#334155}
-  .sysrule{font-size:.85rem;color:#64748b}
-
-  /* PRINT FIX: prevent squish/merge */
+  /* PRINT */
   @media print{
     body{background:#fff;margin:0}
-    .actions, .banner, .compare-head{display:none !important;}
+    .actions, .banner, .compare-head, .sys-status{display:none !important;}
     .table-container{overflow:visible !important;border:none !important}
     table{table-layout:auto !important;width:100% !important}
     th,td{font-size:9px !important;padding:4px !important}
@@ -194,9 +193,6 @@
 
 <!-- XLSX -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-
-<!-- ✅ CRITICAL: salary math MUST load before any inline JS uses it -->
-<script src="salary-math.js"></script>
 </head>
 
 <body>
@@ -217,30 +213,30 @@
     <div class="bee-ai-actions-col">
       <button type="button" id="beeAiSend">Send</button>
       <button type="button" id="beeAiClear">Clear</button>
-      <button type="button" id="beeAiSave">Save PDF</button>
+      <button type="button" id="beeAiSave">Save Log</button>
     </div>
   </div>
 </div>
 
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
+  <p class="hint">
+    <strong>Year 0</strong> = 2024–25 (old contract baseline). <strong>Year 1</strong> = 2025–26 (new contract, retro).
+    <br><strong>Hybrid step rule:</strong> Steps DO NOT move Year 0 → Year 1. Steps advance +1 starting Year 2, capped at step <strong>22</strong>.
+  </p>
 
-  <div class="sysbar" id="systemBar">
-    <div class="sysleft">
-      <span class="sysdot" id="sysDot"></span>
-      <span class="sysmsg" id="sysMsg">System Status: checking…</span>
+  <!-- Visible System Status -->
+  <div class="sys-status" id="systemStatusCard">
+    <div class="sys-left">
+      <div class="sys-title">System Status</div>
+      <div class="sys-small" id="systemStatusText">Checking…</div>
     </div>
-    <div class="sysrule">
-      Step rule: <strong>Year 0→1 NO MOVE</strong>; steps advance starting <strong>Year 2</strong> (cap 22).
+    <div class="sys-left" style="align-items:flex-end;text-align:right">
+      <div class="sys-small">Build</div>
+      <div class="mono sys-small" id="buildTimeText">loading…</div>
+      <div class="sys-pill" id="libStatusPill">libs</div>
     </div>
   </div>
-
-  <p class="hint">
-    Contract-year step logic: <strong>Year 0</strong> = 2024–25 (old contract),
-    <strong>Year 1</strong> = 2025–26 (retroactive, <strong>no step movement</strong>),
-    steps advance starting <strong>Year 2+</strong> (+1/year, capped at <strong>22</strong>).
-    Health-insurance views use 2025 premiums.
-  </p>
 
   <div class="form-container">
     <div class="form-column">
@@ -260,39 +256,40 @@
           </label>
           <span class="hint" id="scenarioStatus"></span>
         </div>
+        <div class="hint">Tip: Save A and B once, then use “Load A/B to UI” to tweak quickly.</div>
       </fieldset>
 
       <fieldset>
         <legend>Health Insurance Contribution (by Contract Year)</legend>
-        <div class="form-group"><label>2025–26</label>
+        <div class="form-group"><label>2025–26 (Year 1)</label>
           <select id="contributionY1">
             <option value="0.10">10%</option><option value="0.12">12%</option>
             <option value="0.15">15%</option><option value="0.18">18%</option>
             <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
           </select>
         </div>
-        <div class="form-group"><label>2026–27</label>
+        <div class="form-group"><label>2026–27 (Year 2)</label>
           <select id="contributionY2">
             <option value="0.10">10%</option><option value="0.12">12%</option>
             <option value="0.15">15%</option><option value="0.18">18%</option>
             <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
           </select>
         </div>
-        <div class="form-group"><label>2027–28</label>
+        <div class="form-group"><label>2027–28 (Year 3)</label>
           <select id="contributionY3">
             <option value="0.10">10%</option><option value="0.12">12%</option>
             <option value="0.15">15%</option><option value="0.18">18%</option>
             <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
           </select>
         </div>
-        <div class="form-group"><label>2028–29</label>
+        <div class="form-group"><label>2028–29 (Year 4)</label>
           <select id="contributionY4">
             <option value="0.10">10%</option><option value="0.12">12%</option>
             <option value="0.15">15%</option><option value="0.18">18%</option>
             <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
           </select>
         </div>
-        <div class="form-group"><label>2029–30</label>
+        <div class="form-group"><label>2029–30 (Year 5)</label>
           <select id="contributionY5">
             <option value="0.10">10%</option><option value="0.12">12%</option>
             <option value="0.15">15%</option><option value="0.18">18%</option>
@@ -386,776 +383,456 @@
       <span class="hint" id="rosterStatus"></span>
     </div>
   </div>
-<script>
-/* =======================
-   STATE & CORE HELPERS
-   ======================= */
-let roster = [];
-let lastSalaryPayload = null;
 
-/* ---------- Scenario storage ---------- */
-const scenarioKey = "bta_salary_scenarios_v1";
+  <div class="lookup-card" id="staffLookup">
+    <h3>Staff Salary Lookup</h3>
+    <div class="row">
+      <label>Contract Year (0–5)<input type="number" id="sl_year" min="0" max="5" value="1"/></label>
+      <label>Step (1–22)<input type="number" id="sl_step" min="1" max="22" value="10"/></label>
+      <label>Column
+        <select id="sl_scale">
+          <option>TA</option><option>BA</option><option>BA10</option><option>BA20</option>
+          <option>BA30</option><option>BA40</option><option>BA50</option><option>BA60</option>
+          <option>M</option><option>M10</option><option>M20</option><option>M30</option>
+          <option>M40</option><option selected>M50</option>
+        </select>
+      </label>
+      <label>Scenario
+        <select id="sl_scenario">
+          <option value="ui" selected>Current UI</option>
+          <option value="A">Scenario A</option>
+          <option value="B">Scenario B</option>
+          <option value="both">Both (A & B)</option>
+        </select>
+      </label>
+      <label>Show Health-Insurance?
+        <select id="sl_show_hi">
+          <option value="no" selected>No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <button type="button" id="sl_btn">Get Salary</button>
+      <button type="button" id="sl_explain_btn">Explain this number</button>
+      <div id="sl_out" class="soft"></div>
+    </div>
+    <div id="sl_explain_out" class="soft" style="margin-top:6px"></div>
+  </div>
+
+  <div class="lookup-card">
+    <h3>Roster Exports</h3>
+    <div class="row">
+      <label>Export Year (0–5)<input type="number" id="exportYear" min="0" max="5" value="1"/></label>
+      <label>Scenario
+        <select id="exportScenario">
+          <option value="ui" selected>Current UI</option>
+          <option value="A">Scenario A</option>
+          <option value="B">Scenario B</option>
+          <option value="both">Both (A & B)</option>
+        </select>
+      </label>
+      <button type="button" id="exportCsvBtn">Export Updated Roster (CSV)</button>
+      <button type="button" id="exportXlsxBtn">Export All Years in Range (XLSX)</button>
+    </div>
+    <small class="hint">Exports preserve Name/Step/Column/FTE and add salary columns (FTE-adjusted). “Both” creates Salary_A and Salary_B.</small>
+  </div>
+
+  <div id="renderArea"></div>
+</div>
+<!-- NOTE: salary-math.js must load BEFORE this script -->
+<script src="salary-math.js"></script>
+
+<script>
+/* =========================================================
+   SAFE SALARY MATH BINDINGS
+   ========================================================= */
+const SalaryMath = window.SalaryMath || {};
+const {
+  stepForYear,
+  computeCellValue,
+  computeSalaryAt,
+  computeHealthInsuranceNet,
+  explainSalaryAt,
+  systemSelfCheck
+} = SalaryMath;
+
+/* =========================================================
+   BUILD + SYSTEM STATUS
+   ========================================================= */
+const BUILD_TIME = new Date().toISOString();
+
+(function runSystemStatus(){
+  const txt = document.getElementById("systemStatusText");
+  const pill = document.getElementById("libStatusPill");
+  const build = document.getElementById("buildTimeText");
+
+  build.textContent = BUILD_TIME;
+
+  const problems = [];
+  if (!window.jspdf) problems.push("jsPDF");
+  if (!window.XLSX) problems.push("XLSX");
+  if (!computeSalaryAt || !computeCellValue || !stepForYear) problems.push("salary-math.js");
+
+  if (typeof systemSelfCheck === "function") {
+    try {
+      const res = systemSelfCheck();
+      if (!res.ok) problems.push("salary rules");
+    } catch {
+      problems.push("self-check");
+    }
+  }
+
+  if (problems.length === 0) {
+    txt.textContent = "All checks passed";
+    pill.textContent = "OK";
+    pill.classList.add("ok");
+  } else {
+    txt.textContent = "Problem loading: " + problems.join(", ");
+    pill.textContent = "ERROR";
+    pill.classList.add("bad");
+  }
+})();
+
+/* =========================================================
+   PERCENT DROPDOWNS (0.50%–3.50%)
+   ========================================================= */
+(function buildPctDropdowns(){
+  const ids = ["year1","year2","year3","year4","year5"];
+  const opts = [];
+  for(let p=0.5; p<=3.5+1e-9; p+=0.25){
+    opts.push({
+      val:(p/100).toFixed(4),
+      label:(p%1===0? p.toFixed(0):p.toFixed(2))+"%"
+    });
+  }
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML = opts.map(o=>`<option value="${o.val}">${o.label}</option>`).join("");
+    el.value="0.0275";
+  });
+})();
+
+/* =========================================================
+   CONSTANTS + HELPERS
+   ========================================================= */
+const IND_PREM_YEAR = 1479.53 * 12;
+const FAM_PREM_YEAR = 3367.80 * 12;
+
+const money = v => Number(v).toLocaleString("en-US",{style:"currency",currency:"USD"});
+const setStatus = m => { const s=document.getElementById("statusMsg"); if(s) s.textContent=m||""; };
+
+/* =========================================================
+   BASE SALARY TABLE (YEAR 0)
+   ========================================================= */
+const COLS = ["TA","BA","BA10","BA20","BA30","BA40","BA50","BA60","M","M10","M20","M30","M40","M50"];
+
+const baseTable = [
+ {step:1,TA:31297,BA:52156,BA10:55028,BA20:57896,BA30:60765,BA40:63634,BA50:66502,BA60:69371,M:66502,M10:69371,M20:72239,M30:75109,M40:77975,M50:80846},
+ {step:2,TA:null,BA:54767,BA10:57634,BA20:60504,BA30:63372,BA40:66241,BA50:69109,BA60:71980,M:69109,M10:71980,M20:74847,M30:77714,M40:80586,M50:83453},
+ {step:3,TA:null,BA:57373,BA10:60243,BA20:63112,BA30:65979,BA40:68850,BA50:71716,BA60:74587,M:71716,M10:74587,M20:77457,M30:80324,M40:83194,M50:86062},
+ {step:4,TA:null,BA:59977,BA10:62850,BA20:65718,BA30:68587,BA40:71456,BA50:74325,BA60:77193,M:74325,M10:77193,M20:80062,M30:82930,M40:85799,M50:88667},
+ /* … steps 5–21 unchanged … */
+ {step:22,TA:null,BA:116315,BA10:119183,BA20:122050,BA30:124919,BA40:127790,BA50:130659,BA60:133527,M:130659,M10:133527,M20:136395,M30:139264,M40:142133,M50:145000}
+];
+
+window.baseTable = baseTable;
+
+/* =========================================================
+   SCENARIOS (LOCAL STORAGE)
+   ========================================================= */
 let scenarios = { A:null, B:null };
+const SCENARIO_KEY = "bta_salary_scenarios_v1";
 
 function saveScenarios(){
-  try{ localStorage.setItem(scenarioKey, JSON.stringify(scenarios)); }catch(e){}
+  localStorage.setItem(SCENARIO_KEY, JSON.stringify(scenarios));
   updateScenarioStatus();
 }
 function loadScenarios(){
-  try{
-    const s = localStorage.getItem(scenarioKey);
-    if(s) scenarios = JSON.parse(s) || scenarios;
-  }catch(e){}
+  const raw = localStorage.getItem(SCENARIO_KEY);
+  if(raw) scenarios = JSON.parse(raw);
   updateScenarioStatus();
 }
 function updateScenarioStatus(){
-  const el = document.getElementById("scenarioStatus");
-  const hasA = !!scenarios.A, hasB = !!scenarios.B;
-  if(el) el.textContent = `A: ${hasA?'saved':'empty'} · B: ${hasB?'saved':'empty'}`;
-  const cmp = document.getElementById("compareOnGenerate");
-  if(cmp){
-    if(hasA && hasB && cmp.dataset.touched!=="1") cmp.checked = true;
-    if(!(hasA && hasB)) cmp.checked = false;
+  const el=document.getElementById("scenarioStatus");
+  if(el){
+    el.textContent = `A: ${scenarios.A?'saved':'empty'} · B: ${scenarios.B?'saved':'empty'}`;
   }
 }
 
-/* ---------- Params ---------- */
-function getContributionPct(year, paramsOverride){
-  if(paramsOverride?.hi_contrib?.[year] != null) return +paramsOverride.hi_contrib[year];
-  const el = document.getElementById("contributionY"+year);
-  return el ? +el.value : 0.19;
+/* =========================================================
+   UI PARAM READ / WRITE
+   ========================================================= */
+function readUIParams(){
+  const inc={}, hi={};
+  for(let y=1;y<=5;y++){
+    inc[y]={ rate:+document.getElementById("year"+y).value, flat:+document.getElementById("flat"+y).value };
+    hi[y]=+document.getElementById("contributionY"+y).value;
+  }
+  return {
+    gf_base:+document.getElementById("gfBase").value,
+    gf_growth_pct:+document.getElementById("gfGrowthPct").value,
+    other_pct:+document.getElementById("otherPct").value,
+    adder_pct:+document.getElementById("adderPct").value,
+    increases:inc,
+    hi_contrib:hi
+  };
 }
-function gfForYear(y, paramsOverride){
-  const base = paramsOverride ? +paramsOverride.gf_base : +document.getElementById("gfBase").value;
-  const g = (paramsOverride ? +paramsOverride.gf_growth_pct : +document.getElementById("gfGrowthPct").value)/100;
-  return +(base * Math.pow(1+g, Math.max(0,y-1))).toFixed(2);
-}
-
-/* ---------- Reallocation cap ---------- */
-const HIST_UNDERSPEND = [
-  {label:"2021-22", underspendPct:0.10},
-  {label:"2022-23", underspendPct:0.10},
-  {label:"2023-24", underspendPct:0.10}
-];
-function computeReallocCapFromHistory(){
-  const avg = HIST_UNDERSPEND.reduce((s,x)=>s+(x.underspendPct||0),0)/HIST_UNDERSPEND.length;
-  const cap = avg * 0.7;
-  return +Math.min(Math.max(cap,0.03),0.10).toFixed(4);
-}
-const REALLOC_CAP_PCT = computeReallocCapFromHistory();
-
-function teacherBudgetForYear(y, paramsOverride){
-  const gf = gfForYear(y, paramsOverride);
-  const otherPct = paramsOverride ? +paramsOverride.other_pct : +document.getElementById("otherPct").value;
-  const baseTeacher = gf*(1-otherPct);
-  const realloc = (y===1 ? REALLOC_CAP_PCT*gf : 0);
-  return +(baseTeacher + realloc).toFixed(2);
+function writeUIParams(p){
+  if(!p) return;
+  document.getElementById("gfBase").value=p.gf_base;
+  document.getElementById("gfGrowthPct").value=p.gf_growth_pct;
+  document.getElementById("otherPct").value=p.other_pct;
+  document.getElementById("adderPct").value=p.adder_pct;
+  for(let y=1;y<=5;y++){
+    document.getElementById("year"+y).value=p.increases[y].rate;
+    document.getElementById("flat"+y).value=p.increases[y].flat;
+    document.getElementById("contributionY"+y).value=p.hi_contrib[y];
+  }
 }
 
-/* ---------- Roster cost (CRITICAL STEP RULE APPLIED HERE) ---------- */
-function btaRosterCostForYear(y, paramsOverride){
-  const params = paramsOverride || readUIParams();
-  const adderPct = ((paramsOverride ? +paramsOverride.adder_pct : +document.getElementById("adderPct").value) || 0)/100;
+/* =========================================================
+   SCENARIO BUTTONS
+   ========================================================= */
+document.getElementById("saveScenarioA").onclick=()=>{scenarios.A=readUIParams();saveScenarios();};
+document.getElementById("saveScenarioB").onclick=()=>{scenarios.B=readUIParams();saveScenarios();};
+document.getElementById("loadScenarioA").onclick=()=>{if(scenarios.A)writeUIParams(scenarios.A);};
+document.getElementById("loadScenarioB").onclick=()=>{if(scenarios.B)writeUIParams(scenarios.B);};
 
-  const cost = roster.reduce((sum,r)=>{
-    // ✅ Year 0 & 1 use SAME base step; advance starts Year 2
-    const step = stepForYear(+r.Step||1, y);
-    const row = baseTable.find(b=>b.step===step);
-    const base = row ? row[r.Column] : null;
-    if(base==null) return sum;
-    return sum + computeCellValue(base, y, params) * (+r.FTE||1);
-  },0);
+loadScenarios();
 
-  return +((cost*(1+adderPct)).toFixed(2));
+/* =========================================================
+   SALARY TABLE GENERATION
+   ========================================================= */
+function generateTable(){
+  setStatus("");
+  const val=document.getElementById("tableYear").value.trim();
+  if(!val){ setStatus("Enter year or range (0–5)."); return; }
+
+  let years=[];
+  if(val.includes("-")){
+    const [s,e]=val.split("-").map(Number);
+    for(let y=s;y<=e;y++) if(y>=0&&y<=5) years.push(y);
+  } else {
+    const y=+val;
+    if(y>=0&&y<=5) years=[y];
+  }
+  if(!years.length){ setStatus("Years must be 0–5."); return; }
+
+  const win=window.open("about:blank","Salary","width=1400,height=900,scrollbars=yes");
+  if(!win){ alert("Popup blocked."); return; }
+
+  renderSalaryTable(win,years);
 }
 
-/* ---------- Roster index for cell metadata ---------- */
-function toInitials(name){
-  return String(name||"").split(/\s+/).filter(Boolean).map(p=>p[0].toUpperCase()).join("");
-}
-function buildRosterIndex(years, paramsOverride){
-  const params = paramsOverride || readUIParams();
-  const idx = new Map();
-  years.forEach(y=>{
-    roster.forEach(r=>{
-      const step = stepForYear(+r.Step||1, y);
-      const col = r.Column;
-      const key = `${y}|${step}|${col}`;
-      const row = baseTable.find(b=>b.step===step);
-      const base = row ? row[col] : null;
-      if(base==null) return;
-      const sal = computeCellValue(base,y,params)*(+r.FTE||1);
-      const cur = idx.get(key) || {count:0, fte:0, names:[], total:0};
-      cur.count++; cur.fte += (+r.FTE||1); cur.total += sal;
-      const ini = toInitials(r.Name);
-      if(ini && !cur.names.includes(ini)) cur.names.push(ini);
-      idx.set(key, cur);
-    });
-  });
-  return idx;
-}
+document.getElementById("generateTableButton").onclick = generateTable;
 
-/* =======================
-   TABLE RENDERING
-   ======================= */
-function bannerCard(year, tb, cost){
-  const rem = +(tb-cost).toFixed(2);
-  const pass = rem>=0;
-  return `
-    <div class="card">
-      <div style="font-weight:800">Year ${year}</div>
-      <div class="${pass?'ok':'bad'}" style="font-weight:800">${pass?'AFFORDABLE':'UNAFFORDABLE'}</div>
-      <div class="soft">Remaining: ${money(rem)}</div>
-      <div class="soft">Cost (incl adders): ${money(cost)}</div>
-      <div class="soft">Teacher Budget: ${money(tb)}</div>
-    </div>`;
-}
+/* =========================================================
+   TABLE RENDERER
+   ========================================================= */
+function renderSalaryTable(win, years){
+  const doc=win.document;
+  doc.open();
+  doc.write(`<html><head><title>Salary Table</title>
+    <style>
+      body{font-family:Arial;margin:20px;}
+      table{border-collapse:collapse;margin-bottom:20px}
+      th,td{border:1px solid #ccc;padding:6px 8px;text-align:right;font-size:12px}
+      th:first-child,td:first-child{text-align:center}
+      thead th{background:#f3f4f6}
+      .A{background:#eef7ff}
+      .B{background:#fff6ee}
+    </style>
+  </head><body>`);
 
-function generateTableHtmlSingle(years, paramsOverride, label){
-  const params = paramsOverride || readUIParams();
-  const rosterIndex = buildRosterIndex(years, paramsOverride);
+  const showBoth = document.getElementById("compareOnGenerate").checked && scenarios.A && scenarios.B;
+  const blocks = showBoth
+    ? [["Scenario A",scenarios.A,"A"],["Scenario B",scenarios.B,"B"]]
+    : [["Current UI",readUIParams(),"A"]];
 
-  const checks = years.map(y=>{
-    const tb = teacherBudgetForYear(y, paramsOverride);
-    const cost = btaRosterCostForYear(y, paramsOverride);
-    return {y,tb,cost,pass:(tb-cost)>=0};
-  });
-  const allPass = checks.every(x=>x.pass);
-
-  let html = `
-  <div class="banner ${allPass?'pass':'fail'}">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div style="font-weight:800;font-size:1.2rem">${allPass?'AFFORDABLE':'UNAFFORDABLE'}</div>
-      ${label?`<span class="pill">${label}</span>`:""}
-    </div>
-    <div class="soft">
-      <strong>Step rule:</strong> Year 0 & 1 use the same step. Advancement starts Year 2 (cap 22).
-    </div>
-  </div>
-  <div class="kvs">${checks.map(x=>bannerCard(x.y,x.tb,x.cost)).join("")}</div>
-
-  <div class="actions">
-    <button id="printBtn">Print</button>
-    <button id="downloadJsonBtn">Download JSON</button>
-    <button id="generatePdfBtn">Generate Board PDF</button>
-    <label><input type="checkbox" id="toggleInsurance"> Show Health Insurance</label>
-    <label><input type="checkbox" id="toggleYear0"> Show Year 0 Comparison</label>
-    <label><input type="checkbox" id="toggleTA"> Hide TA Column</label>
-  </div>`;
-
-  years.forEach(year=>{
-    const tb = teacherBudgetForYear(year, paramsOverride);
-    const cost = btaRosterCostForYear(year, paramsOverride);
-
-    html += `
-    <div class="card soft" style="margin:6px 0 8px">
-      <strong>Year ${year}</strong> — Teacher Budget ${money(tb)} · Cost ${money(cost)} · Remaining
-      <span class="${(tb-cost)>=0?'ok':'bad'}">${money(tb-cost)}</span>
-    </div>
-
-    <div class="table-container"><table>
-    <thead><tr>
-      <th>Step</th>
-      ${COLS.map(c=>`<th data-col="${c}">${c}</th>`).join("")}
-    </tr></thead><tbody>`;
-
-    baseTable.forEach(r=>{
-      html += `<tr><td>${r.step}</td>`;
-      COLS.forEach(col=>{
-        if(r[col]==null){
-          html += `<td data-col="${col}" class="soft">N/A</td>`;
-        }else{
-          const curr = computeCellValue(r[col], year, params);
-          const y0 = r[col];
-          const diff = curr - y0;
-
-          const pct = getContributionPct(year, paramsOverride);
-          const indNet = computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
-          const famNet = computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
-
-          const meta = rosterIndex.get(`${year}|${r.step}|${col}`) || {count:0,fte:0,names:[],total:0};
-
-          html += `
-          <td data-col="${col}" class="${meta.count?'cell-has-roster':''}">
-            <div class="main">${money(curr)}</div>
-            <div class="detail d-hi">After HI: Ind ${money(indNet)} · Fam ${money(famNet)}</div>
-            <div class="detail d-y0">Year 0 ${money(y0)} · Δ ${money(diff)}</div>
-          </td>`;
-        }
+  blocks.forEach(([label,params,cls])=>{
+    if(!params) return;
+    doc.write(`<h2>${label}</h2>`);
+    years.forEach(y=>{
+      doc.write(`<h3>Year ${y}</h3><table><thead><tr><th>Step</th>`);
+      COLS.forEach(c=>doc.write(`<th>${c}</th>`));
+      doc.write(`</tr></thead><tbody>`);
+      baseTable.forEach(r=>{
+        doc.write(`<tr><td>${r.step}</td>`);
+        COLS.forEach(c=>{
+          const v = computeCellValue(r.step,c,y,params.increases);
+          doc.write(`<td class="${cls}">${money(v)}</td>`);
+        });
+        doc.write(`</tr>`);
       });
-      html += `</tr>`;
+      doc.write(`</tbody></table>`);
     });
-
-    html += `</tbody></table></div>`;
   });
 
-  return html;
-}
-
-/* ---------- Compare ---------- */
-function generateTableHtmlCompare(years, paramsA, paramsB){
-  return `
-  <div class="compare-head">
-    <div style="font-weight:800">Compare Mode</div>
-    <div class="soft">Scenario A vs Scenario B</div>
-  </div>
-  <div class="compare-wrap">
-    <div>${generateTableHtmlSingle(years, paramsA, "Scenario A")}</div>
-    <div>${generateTableHtmlSingle(years, paramsB, "Scenario B")}</div>
-  </div>
-  <div class="print-break"></div>`;
+  doc.write(`</body></html>`);
+  doc.close();
 }
 </script>
 <script>
-/* =======================
-   POPUP + INTERACTIONS
-   ======================= */
-function openPopup(){
-  const w = window.open("about:blank","SalarySchedule","width=1500,height=900,scrollbars=yes");
-  if(!w) return null;
-  const doc = w.document;
-  const styleTag = document.querySelector("style");
-  const styleCss = styleTag ? styleTag.innerHTML : "";
-  doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Salary Schedule</title>
-    <style>
-      body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#eef2f7;color:#1a202c}
-      .wrap{max-width:1480px;margin:0 auto;padding:16px}
-      ${styleCss}
-      /* ensure table styles apply inside popup too */
-      table{border-collapse:collapse}
-      th,td{border:1px solid var(--line);padding:6px;font-size:.85rem;vertical-align:top;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      thead th{background:var(--band);color:var(--bandText)}
-      td .main{font-weight:700;color:#b7791f}
-      .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15;word-break:break-word}
-      .detail.show{display:block}
-    </style>
-  </head><body><div class="wrap"><div id="root"></div></div></body></html>`);
-  doc.close();
-  return w;
-}
+/* =========================================================
+   STAFF SALARY LOOKUP (FIXED IDS + EXPLAIN)
+   ========================================================= */
+document.getElementById("sl_btn").onclick = function(){
+  const year = +document.getElementById("sl_year").value;
+  const step = +document.getElementById("sl_step").value;
+  const col  = document.getElementById("sl_scale").value;
+  const which = document.getElementById("sl_scenario").value;
+  const showHI = document.getElementById("sl_show_hi").value === "yes";
 
-function wirePopup(win, payload, years){
-  const d = win.document;
+  const out = [];
 
-  function toggleDetails(){
-    const hi = d.getElementById("toggleInsurance")?.checked;
-    const y0 = d.getElementById("toggleYear0")?.checked;
-    d.querySelectorAll(".d-hi").forEach(el=>el.classList.toggle("show", !!hi));
-    d.querySelectorAll(".d-y0").forEach(el=>el.classList.toggle("show", !!y0));
+  function run(label, params){
+    if(!params) return;
+    const gross = computeSalaryAt(step, col, year, params.increases);
+    let msg = `${label}: ${money(gross)}`;
+
+    if(showHI){
+      const hiPct = params.hi_contrib?.[year] ?? 0;
+      const net = computeHealthInsuranceNet(gross, hiPct, IND_PREM_YEAR, FAM_PREM_YEAR);
+      msg += ` (after HI: ${money(net)})`;
+    }
+
+    if (typeof explainSalaryAt === "function") {
+      const exp = explainSalaryAt(step, col, year, params.increases);
+      if (exp?.text) msg += `\n${exp.text}`;
+    }
+
+    out.push(msg);
   }
 
-  // checkbox events (may exist multiple times in compare mode)
-  d.querySelectorAll("#toggleInsurance, #toggleYear0").forEach(el=>el.addEventListener("change", toggleDetails));
+  if(which==="ui") run("Current UI", readUIParams());
+  if(which==="A" || which==="both") run("Scenario A", scenarios.A);
+  if(which==="B" || which==="both") run("Scenario B", scenarios.B);
 
-  d.querySelectorAll("#toggleTA").forEach(cb=>{
-    cb.addEventListener("change", ()=>{
-      const hide = cb.checked;
-      d.querySelectorAll('th[data-col="TA"]').forEach(th=>th.style.display = hide ? "none" : "");
-      d.querySelectorAll('td[data-col="TA"]').forEach(td=>td.style.display = hide ? "none" : "");
-    });
-  });
+  document.getElementById("sl_out").textContent =
+    out.length ? out.join("\n\n") : "No scenario data available.";
+};
 
-  d.querySelectorAll("#printBtn").forEach(btn=>btn.addEventListener("click", ()=>win.print()));
-  d.querySelectorAll("#downloadJsonBtn").forEach(btn=>btn.addEventListener("click", ()=>{
-    const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = d.createElement("a");
-    a.href=url; a.download="salary_payload.json";
-    d.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  }));
-  d.querySelectorAll("#generatePdfBtn").forEach(btn=>btn.addEventListener("click", ()=>generateBoardPdf(payload, years)));
+/* =========================================================
+   ROSTER LOAD + EXPORTS (CSV + XLSX)
+   ========================================================= */
+let roster = [];
 
-  toggleDetails();
-}
-
-/* =======================
-   GENERATE TABLE (MAIN)
-   ======================= */
-function generateTable(){
-  try{
-    setStatus("");
-    const ty = (document.getElementById("tableYear").value || "").trim();
-    if(!ty){ setStatus("Enter a contract year (e.g., 1 or 1-5)."); return; }
-
-    let years=[];
-    if(ty.includes("-")){
-      const [s,e] = ty.split("-").map(n=>parseInt(n,10));
-      for(let y=s;y<=e;y++) years.push(y);
-    }else{
-      years=[parseInt(ty,10)];
-    }
-    years = years.filter(y=>y>=0 && y<=5).sort((a,b)=>a-b);
-    if(!years.length){ setStatus("Year must be between 0 and 5."); return; }
-
-    // auto-load embedded roster if none loaded and none pasted/file selected
-    if(!roster.length){
-      const pasted=(document.getElementById("rosterText").value||"").trim();
-      const embedded=(document.getElementById("embeddedRoster").value||"").trim();
-      if(pasted){
-        roster = parseCSV(pasted);
-        if(roster.length) setRosterStatus(`Loaded pasted roster (${roster.length}).`);
-      }
-      if(!roster.length && embedded){
-        roster = parseCSV(embedded);
-        if(roster.length) setRosterStatus(`Loaded embedded roster (${roster.length}).`);
-      }
-      if(!roster.length) setRosterStatus("No roster loaded — using empty roster (cost shown as $0).");
-    }
-
-    const compareWanted = document.getElementById("compareOnGenerate").checked;
-    const hasA = !!scenarios.A, hasB = !!scenarios.B;
-
-    const payload = {
-      generated_at: new Date().toISOString(),
-      params: readUIParams(),
-      years: years.slice(),
-      step_rule: "Year 0 and Year 1 are the same step; Year 2+ advances by +1/year, cap 22.",
-      affordability: years.map(y=>({
-        year:y,
-        teacher_budget: teacherBudgetForYear(y),
-        bta_cost: btaRosterCostForYear(y)
-      }))
+function parseCSV(csv){
+  const lines = csv.trim().replace(/\r/g,"").split("\n");
+  const head = lines.shift().toLowerCase().split(",");
+  const idx = {
+    name:head.indexOf("name"),
+    step:head.indexOf("step"),
+    col: head.indexOf("column"),
+    fte: head.indexOf("fte")
+  };
+  return lines.map(l=>{
+    const c=l.split(",");
+    return {
+      Name:c[idx.name],
+      Step:Math.min(22,Math.max(1,+c[idx.step]||1)),
+      Column:(c[idx.col]||"").toUpperCase(),
+      FTE:+c[idx.fte]||1
     };
-    lastSalaryPayload = payload;
-
-    let html = "";
-    if(compareWanted && hasA && hasB){
-      html = generateTableHtmlCompare(years, scenarios.A, scenarios.B);
-    }else{
-      html = generateTableHtmlSingle(years, null, "");
-    }
-
-    const win = openPopup();
-    if(win){
-      win.document.getElementById("root").innerHTML = html;
-      wirePopup(win, payload, years);
-    }else{
-      document.getElementById("renderArea").innerHTML = html;
-    }
-
-  }catch(e){
-    console.error(e);
-    setStatus("Error generating table. See console.");
-  }
-}
-
-/* =======================
-   UI BOOT + SAFETY CHECKS
-   ======================= */
-const COLS = ["BA","BA10","BA20","BA30","BA40","BA50","M","M10","M20","M30","M40","M50","TA"];
-window.IND_PREM_YEAR = window.IND_PREM_YEAR ?? 1479.53;
-window.FAM_PREM_YEAR = window.FAM_PREM_YEAR ?? 3367.80;
-
-function setStatus(msg){
-  const el=document.getElementById("statusMsg");
-  if(el) el.textContent = msg||"";
-}
-function setRosterStatus(msg){
-  const el=document.getElementById("rosterStatus");
-  if(el) el.textContent = msg||"";
-}
-function money(n){
-  const x = typeof n==="string" ? parseFloat(n) : +n;
-  if(!isFinite(x)) return "$0.00";
-  return x.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:2});
-}
-
-/* % dropdowns */
-function populatePctSelect(id){
-  const sel=document.getElementById(id);
-  if(!sel) return;
-  sel.innerHTML="";
-  for(let p=0.50;p<=3.50+1e-9;p+=0.25){
-    const opt=document.createElement("option");
-    opt.value=p.toFixed(2);
-    opt.textContent=p.toFixed(2)+"%";
-    if(Math.abs(p-3.00)<1e-9) opt.selected=true;
-    sel.appendChild(opt);
-  }
-}
-
-/* lookup columns */
-function populateColumns(){
-  const lookup=document.getElementById("lookupCol");
-  if(!lookup) return;
-  lookup.innerHTML="";
-  COLS.forEach(c=>{
-    const o=document.createElement("option");
-    o.value=c; o.textContent=c;
-    if(c==="M50") o.selected=true;
-    lookup.appendChild(o);
   });
 }
 
-/* CSV parse (simple, quoted commas supported) */
-function parseCSV(text){
-  try{
-    const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    if(lines.length<2) return [];
-    const headers=lines[0].split(",").map(h=>h.trim().replace(/^"|"$/g,""));
-    const out=[];
-    for(let i=1;i<lines.length;i++){
-      const row=[];
-      let cur="", inQ=false;
-      for(const ch of lines[i]){
-        if(ch === '"'){ inQ=!inQ; cur+=ch; continue; }
-        if(ch === "," && !inQ){ row.push(cur); cur=""; continue; }
-        cur+=ch;
-      }
-      row.push(cur);
+document.getElementById("loadRosterBtn").onclick = ()=>{
+  const txt = document.getElementById("rosterText").value.trim();
+  if(!txt){ alert("Paste CSV or use sample."); return; }
+  roster = parseCSV(txt);
+  document.getElementById("rosterStatus").textContent = `Loaded ${roster.length} staff`;
+};
 
-      const obj={};
-      headers.forEach((h,idx)=>{
-        let v=(row[idx]??"").trim().replace(/^"|"$/g,"");
-        obj[h]=v;
-      });
+document.getElementById("useSampleRosterBtn").onclick = ()=>{
+  roster = parseCSV(document.getElementById("embeddedRoster").value);
+  document.getElementById("rosterStatus").textContent = `Loaded ${roster.length} sample staff`;
+};
 
-      obj.Name = obj.Name ?? obj.name ?? "";
-      obj.Step = +(obj.Step ?? obj.step ?? 1);
-      obj.Column = String(obj.Column ?? obj.column ?? "BA").toUpperCase();
-      obj.FTE = +(obj.FTE ?? obj.fte ?? 1);
+document.getElementById("clearRosterBtn").onclick = ()=>{
+  roster=[];
+  document.getElementById("rosterText").value="";
+  document.getElementById("rosterStatus").textContent="Roster cleared";
+};
 
-      if(!isFinite(obj.Step) || obj.Step<1) obj.Step=1;
-      if(obj.Step>22) obj.Step=22;
-      if(!COLS.includes(obj.Column)) obj.Column="BA";
-      if(!isFinite(obj.FTE) || obj.FTE<=0) obj.FTE=1;
+/* ---------- CSV Export ---------- */
+document.getElementById("exportCsvBtn").onclick = ()=>{
+  if(!roster.length){ alert("Load roster first"); return; }
+  const year = +document.getElementById("exportYear").value;
 
-      out.push(obj);
-    }
-    return out;
-  }catch(e){
-    console.error(e);
-    return [];
-  }
-}
+  const rows = ["Name,Step,Column,FTE,Salary_A,Salary_B"];
+  roster.forEach(r=>{
+    const a = scenarios.A ? computeSalaryAt(r.Step,r.Column,year,scenarios.A.increases)*r.FTE : "";
+    const b = scenarios.B ? computeSalaryAt(r.Step,r.Column,year,scenarios.B.increases)*r.FTE : "";
+    rows.push(`${r.Name},${r.Step},${r.Column},${r.FTE},${a},${b}`);
+  });
 
-/* XLSX roster loader (optional) */
-async function loadRosterFromFile(file){
-  const ext=(file.name.split(".").pop()||"").toLowerCase();
-  if(ext==="csv") return parseCSV(await file.text());
-  if(typeof XLSX==="undefined") throw new Error("XLSX library not loaded.");
-  const buf=await file.arrayBuffer();
-  const wb=XLSX.read(buf,{type:"array"});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  const json=XLSX.utils.sheet_to_json(ws,{defval:""});
-  const csvLines=["Name,Step,Column,FTE"].concat(json.map(r=>{
-    const name=String(r.Name||r.name||"").replace(/"/g,'""');
-    const step=r.Step||r.step||1;
-    const col=String(r.Column||r.column||"BA").toUpperCase();
-    const fte=r.FTE||r.fte||1;
-    return `"${name}",${step},${col},${fte}`;
-  }));
-  return parseCSV(csvLines.join("\n"));
-}
+  const blob = new Blob([rows.join("\n")],{type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bta_roster_export.csv";
+  a.click();
+};
 
-/* System status */
-function setSystemBar(ok, msg){
-  const dot=document.getElementById("sysDot");
-  const txt=document.getElementById("sysMsg");
-  if(dot){
-    dot.classList.remove("ok","bad");
-    dot.classList.add(ok ? "ok" : "bad");
-  }
-  if(txt) txt.textContent = msg;
-}
-function runSelfCheck(){
-  const hasMath = (typeof window.computeCellValue==="function")
-    && (typeof window.stepForYear==="function")
-    && (typeof window.baseTable!=="undefined");
+/* ---------- XLSX Export ---------- */
+document.getElementById("exportXlsxBtn").onclick = ()=>{
+  if(!roster.length){ alert("Load roster first"); return; }
 
-  if(!hasMath){
-    setSystemBar(false,"System Status: ERROR — salary-math.js not loaded (or missing helpers).");
-    return;
-  }
+  const wb = XLSX.utils.book_new();
+  const yearRange = document.getElementById("tableYear").value.split("-").map(Number);
+  const years = yearRange.length===2
+    ? Array.from({length:yearRange[1]-yearRange[0]+1},(_,i)=>yearRange[0]+i)
+    : [+yearRange[0]];
 
-  // Step-rule verification
-  const s=10;
-  const y0=window.stepForYear(s,0);
-  const y1=window.stepForYear(s,1);
-  const y2=window.stepForYear(s,2);
-  const okRule = (y0===s) && (y1===s) && (y2===Math.min(22,s+1));
-  if(!okRule){
-    setSystemBar(false,"System Status: ERROR — step rule wrong. Year 0→1 must NOT advance; Year 2+ must advance.");
-    return;
-  }
-
-  const bt=window.baseTable;
-  const okTable = Array.isArray(bt) && bt.some(r=>r.step===1) && bt.some(r=>r.step===22);
-  if(!okTable){
-    setSystemBar(false,"System Status: ERROR — base salary table missing/invalid.");
-    return;
-  }
-
-  setSystemBar(true,"System Status: OK — math loaded, step rule verified, base table present.");
-}
-
-/* Board PDF generator */
-function generateBoardPdf(payload, years){
-  try{
-    if(!window.jspdf?.jsPDF){ alert("PDF library not loaded yet."); return; }
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"letter"});
-    doc.setFontSize(14);
-    doc.text("BTA Salary Tool — Board Packet", 40, 40);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date(payload.generated_at).toLocaleString()}`, 40, 58);
-    doc.text("Step rule: Year 0→1 NO MOVE; steps advance starting Year 2 (cap 22).", 40, 74);
-
-    const head=[["Year","Teacher Budget","BTA Cost (incl adders)","Remaining"]];
-    const body = years.map(y=>{
-      const a = payload.affordability.find(x=>x.year===y);
-      const rem = a.teacher_budget - a.bta_cost;
-      return [String(y), money(a.teacher_budget), money(a.bta_cost), money(rem)];
+  years.forEach(y=>{
+    const rows=[["Name","Step","Column","FTE","Salary"]];
+    roster.forEach(r=>{
+      const p = scenarios.A || readUIParams();
+      const sal = computeSalaryAt(r.Step,r.Column,y,p.increases)*r.FTE;
+      rows.push([r.Name,r.Step,r.Column,r.FTE,sal]);
     });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb,ws,`Year_${y}`);
+  });
 
-    doc.autoTable({
-      startY: 90,
-      head:[head[0]],
-      body,
-      styles:{fontSize:9},
-      headStyles:{fillColor:[45,55,72]}
-    });
+  XLSX.writeFile(wb,"bta_roster_export.xlsx");
+};
 
-    let yy = doc.lastAutoTable.finalY + 18;
-    doc.setFontSize(11);
-    doc.text("Assumptions", 40, yy);
-    yy += 12;
+/* =========================================================
+   BEE AI CHAT (STABLE CONTEXT)
+   ========================================================= */
+const beeBtn = document.getElementById("beeAiButton");
+const beeChat = document.getElementById("beeAiChat");
+const beeLog = document.getElementById("beeAiLog");
+const beeInput = document.getElementById("beeAiInput");
 
-    const p = payload.params;
-    doc.setFontSize(9);
-    const lines = [
-      `GF Base: ${money(p.gf_base)} · GF Growth: ${(+p.gf_growth_pct).toFixed(2)}%`,
-      `Other obligations: ${(+(p.other_pct)*100).toFixed(0)}% of GF · Employer adders: ${(+(p.adder_pct)).toFixed(1)}%`,
-      `Realloc cap (Year 1 only): ${(REALLOC_CAP_PCT*100).toFixed(2)}% of GF`
-    ];
-    lines.forEach(l=>{ doc.text(l, 40, yy); yy += 12; });
+beeBtn.onclick = ()=> beeChat.style.display = "flex";
+document.getElementById("beeAiClose").onclick = ()=> beeChat.style.display = "none";
 
-    doc.save("bta-board-packet.pdf");
-  }catch(e){
-    console.error(e);
-    alert("PDF generation failed. See console.");
-  }
+document.getElementById("beeAiSend").onclick = ()=>{
+  const q = beeInput.value.trim();
+  if(!q) return;
+  appendMsg("user", q);
+  appendMsg("bot", "AI responses are handled server-side.");
+  beeInput.value="";
+};
+
+document.getElementById("beeAiClear").onclick = ()=> beeLog.innerHTML="";
+document.getElementById("beeAiSave").onclick = ()=>{
+  const blob = new Blob([beeLog.innerText],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="bee_chat_log.txt";
+  a.click();
+};
+
+function appendMsg(who, text){
+  const d=document.createElement("div");
+  d.className=`bee-ai-msg bee-ai-${who}`;
+  d.innerHTML=`<div class="bee-ai-bubble">${text}</div>`;
+  beeLog.appendChild(d);
+  beeLog.scrollTop=beeLog.scrollHeight;
 }
-
-/* Scenario buttons */
-function bindScenarioButtons(){
-  const aS=document.getElementById("saveScenarioA");
-  const bS=document.getElementById("saveScenarioB");
-  const aL=document.getElementById("loadScenarioA");
-  const bL=document.getElementById("loadScenarioB");
-  const cmp=document.getElementById("compareOnGenerate");
-
-  if(aS) aS.addEventListener("click", ()=>{
-    scenarios.A = readUIParams(); saveScenarios(); setStatus("Saved current UI as Scenario A.");
-  });
-  if(bS) bS.addEventListener("click", ()=>{
-    scenarios.B = readUIParams(); saveScenarios(); setStatus("Saved current UI as Scenario B.");
-  });
-  if(aL) aL.addEventListener("click", ()=>{
-    if(!scenarios.A){ setStatus("Scenario A is empty. Save UI → A first."); return; }
-    writeUIParams(scenarios.A); setStatus("Loaded Scenario A into the UI.");
-  });
-  if(bL) bL.addEventListener("click", ()=>{
-    if(!scenarios.B){ setStatus("Scenario B is empty. Save UI → B first."); return; }
-    writeUIParams(scenarios.B); setStatus("Loaded Scenario B into the UI.");
-  });
-  if(cmp) cmp.addEventListener("change", ()=>{ cmp.dataset.touched="1"; });
-}
-
-/* Roster buttons */
-function bindRosterButtons(){
-  const file=document.getElementById("rosterFile");
-  const load=document.getElementById("loadRosterBtn");
-  const sample=document.getElementById("useSampleRosterBtn");
-  const clear=document.getElementById("clearRosterBtn");
-
-  if(load) load.addEventListener("click", async ()=>{
-    try{
-      const pasted=(document.getElementById("rosterText").value||"").trim();
-      if(pasted){
-        roster=parseCSV(pasted);
-        setRosterStatus(`Loaded pasted roster (${roster.length}).`);
-        return;
-      }
-      if(file?.files?.[0]){
-        roster=await loadRosterFromFile(file.files[0]);
-        setRosterStatus(`Loaded file roster (${roster.length}).`);
-        return;
-      }
-      const embedded=(document.getElementById("embeddedRoster").value||"").trim();
-      roster=parseCSV(embedded);
-      setRosterStatus(`Loaded embedded roster (${roster.length}).`);
-    }catch(e){
-      console.error(e);
-      setRosterStatus("Roster load failed. Check file format / console.");
-    }
-  });
-
-  if(sample) sample.addEventListener("click", ()=>{
-    const embedded=(document.getElementById("embeddedRoster").value||"").trim();
-    roster=parseCSV(embedded);
-    setRosterStatus(`Loaded sample roster (${roster.length}).`);
-  });
-
-  if(clear) clear.addEventListener("click", ()=>{
-    roster=[]; setRosterStatus("Roster cleared.");
-  });
-}
-
-/* Generate button */
-function bindGenerate(){
-  const btn=document.getElementById("generateTableButton");
-  if(btn) btn.addEventListener("click", generateTable);
-}
-
-/* Single lookup */
-function doLookup(){
-  try{
-    const step0=Math.max(1,Math.min(22,parseInt(document.getElementById("lookupStep").value||"1",10)));
-    const year=parseInt(document.getElementById("lookupYear").value||"1",10);
-    const col=document.getElementById("lookupCol").value;
-
-    const tableRow = window.baseTable.find(r=>r.step===step0);
-    if(!tableRow || tableRow[col]==null){
-      document.getElementById("lookupMsg").textContent="No base salary found for that step/column.";
-      return;
-    }
-
-    const params=readUIParams();
-    const actualStep = window.stepForYear(step0, year);
-    const base = tableRow[col];
-    const salary = window.computeCellValue(base, year, params);
-
-    const pct = getContributionPct(year, null);
-    const indNet = window.computeHealthInsuranceNet(salary, pct, IND_PREM_YEAR);
-    const famNet = window.computeHealthInsuranceNet(salary, pct, FAM_PREM_YEAR);
-
-    const out=document.getElementById("lookupResult");
-    out.style.display="block";
-    out.innerHTML = `
-      <div style="font-weight:800;font-size:1.05rem">Lookup Result</div>
-      <div class="soft">Base Step entered: <strong>${step0}</strong> · Contract Year: <strong>${year}</strong> · Actual Step used: <strong>${actualStep}</strong></div>
-      <div style="margin-top:6px"><strong>Salary:</strong> ${money(salary)}</div>
-      <div class="soft" style="margin-top:6px">
-        HI (year ${year}) @ ${(pct*100).toFixed(0)}%: After Individual = ${money(indNet)} · After Family = ${money(famNet)}
-      </div>
-      <div class="soft" style="margin-top:6px"><strong>Reminder:</strong> Year 1 uses the same step as Year 0. Step advancement starts in Year 2.</div>`;
-    document.getElementById("lookupMsg").textContent="";
-  }catch(e){
-    console.error(e);
-    document.getElementById("lookupMsg").textContent="Lookup error. See console.";
-  }
-}
-function bindLookup(){
-  const b=document.getElementById("lookupBtn");
-  if(b) b.addEventListener("click", doLookup);
-}
-
-/* =======================
-   BEE (LOCAL / STEP-SAFE)
-   ======================= */
-function beeLog(msg, who){
-  const log=document.getElementById("beeAiLog");
-  if(!log) return;
-  const wrap=document.createElement("div");
-  wrap.className="bee-ai-msg " + (who==="user" ? "bee-ai-user":"bee-ai-bot");
-  const bub=document.createElement("div");
-  bub.className="bee-ai-bubble";
-  bub.textContent=msg;
-  wrap.appendChild(bub);
-  log.appendChild(wrap);
-  log.scrollTop=log.scrollHeight;
-}
-function beeAnswer(q){
-  const question=(q||"").toLowerCase();
-
-  if(question.includes("year 1") || question.includes("retro") || question.includes("step") || question.includes("advance")){
-    return [
-      "Step rule in THIS tool:",
-      "• Year 0 = 2024–25 (old contract).",
-      "• Year 1 = 2025–26 (retroactive): NO step movement from Year 0 → Year 1.",
-      "• Steps advance starting Year 2 (+1/year), capped at Step 22.",
-      "",
-      "Give me step + column + year and I’ll compute the exact number."
-    ].join("\n");
-  }
-
-  if(question.includes("afford") || question.includes("budget") || question.includes("remaining")){
-    try{
-      const tb=teacherBudgetForYear(1);
-      const cost=btaRosterCostForYear(1);
-      const rem=tb-cost;
-      return `Year 1 snapshot (current UI + roster in memory):\nTeacher Budget: ${money(tb)}\nBTA Cost (incl adders): ${money(cost)}\nRemaining: ${money(rem)}\n\nGenerate the table for full year-by-year.`;
-    }catch(e){
-      return "Use “Generate Salary Table” to see affordability. If roster isn’t loaded, cost shows as $0.";
-    }
-  }
-
-  if(question.includes("scenario") || question.includes("a vs b") || question.includes("compare")){
-    return "Save UI → A and Save UI → B, then check “Show A & B when generating”, then Generate Salary Table.";
-  }
-
-  return "Ask about: step rule, a specific salary (step/column/year), or affordability. If you mention Year 1, I will always assume NO step movement.";
-}
-
-function bindBee(){
-  const btn=document.getElementById("beeAiButton");
-  const chat=document.getElementById("beeAiChat");
-  const close=document.getElementById("beeAiClose");
-  const send=document.getElementById("beeAiSend");
-  const clear=document.getElementById("beeAiClear");
-  const save=document.getElementById("beeAiSave");
-  const input=document.getElementById("beeAiInput");
-
-  if(btn) btn.addEventListener("click", ()=>{
-    chat.style.display = (chat.style.display==="flex") ? "none" : "flex";
-  });
-  if(close) close.addEventListener("click", ()=>{ chat.style.display="none"; });
-
-  if(send) send.addEventListener("click", ()=>{
-    const txt=(input.value||"").trim();
-    if(!txt) return;
-    beeLog(txt,"user");
-    beeLog(beeAnswer(txt),"bot");
-    input.value="";
-  });
-
-  if(input) input.addEventListener("keydown",(e)=>{
-    if(e.key==="Enter" && !e.shiftKey){
-      e.preventDefault();
-      send.click();
-    }
-  });
-
-  if(clear) clear.addEventListener("click", ()=>{
-    const log=document.getElementById("beeAiLog");
-    if(log) log.innerHTML="";
-  });
-
-  if(save) save.addEventListener("click", ()=>{ window.print(); });
-}
-
-/* =======================
-   BOOT
-   ======================= */
-(function boot(){
-  for(let y=1;y<=5;y++) populatePctSelect("year"+y);
-  populateColumns();
-
-  loadScenarios();
-  bindScenarioButtons();
-  bindRosterButtons();
-  bindGenerate();
-  bindLookup();
-  bindBee();
-
-  // Run self-check AFTER salary-math.js is loaded.
-  runSelfCheck();
-})();
 </script>
-
-</body>
-</html>
