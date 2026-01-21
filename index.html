@@ -765,7 +765,7 @@ function generateTableHtmlSingle(years, paramsOverride, label){
 
           const key = `${year}|${r.step}|${col}`;
           const meta = rosterIndex.get(key) || {count:0, fte:0, names:[], total:0};
-          let tip = `Year ${year}  Step ${r.step} • ${col}`;
+          let tip = `Year ${year} • Step ${r.step} • ${col}`;
           if(meta.count>0){
             tip += `\nStaff in cell: ${meta.count}`;
             if(meta.names.length){ tip += ` (${meta.names.join(", ")})`; }
@@ -896,6 +896,23 @@ function wireTableControls(doc){
 
   const setDisplay = (nodes, on) => nodes.forEach(n=>n.classList.toggle("show", !!on));
 
+  const buildComputedTablesForYears = (years, params) => {
+    return years.reduce((yearAcc, year) => {
+      const stepMap = {};
+      baseTable.forEach(row => {
+        const rowValues = {};
+        COLS.forEach(col => {
+          const base = row[col];
+          if (base == null) return;
+          rowValues[col] = +computeCellValue(base, year, params).toFixed(2);
+        });
+        stepMap[`Step${row.step}`] = rowValues;
+      });
+      yearAcc[String(year)] = stepMap;
+      return yearAcc;
+    }, {});
+  };
+
   if(toggleHI){ toggleHI.addEventListener("change", e=> setDisplay(detailsHI, e.target.checked)); }
   if(toggleY0){ toggleY0.addEventListener("change", e=> setDisplay(detailsY0, e.target.checked)); }
   if(toggleTA){
@@ -911,17 +928,27 @@ function wireTableControls(doc){
   const downloadJsonBtn = doc.getElementById("downloadJsonBtn");
   if(downloadJsonBtn){
     downloadJsonBtn.addEventListener("click", ()=>{
+      const years=parseYearRange(document.getElementById("tableYear").value);
       const payload={
         meta:{
           exportedAt:new Date().toISOString(),
-          version:"salary-payload-v2"
+          version:"salary-payload-v3"
         },
+        cols: COLS,
+        baseTable: baseTable,
         ui:readUIParams(),
         scenarios:{
           A:scenarios.A || null,
           B:scenarios.B || null
         },
-        roster:roster
+        computedTables:{
+          ui: buildComputedTablesForYears(years, readUIParams()),
+          A: scenarios.A ? buildComputedTablesForYears(years, scenarios.A) : null,
+          B: scenarios.B ? buildComputedTablesForYears(years, scenarios.B) : null
+        },
+        roster:roster,
+        lastSalaryLookup: lastSalaryPayload || null,
+        affordability: years.map(y=>({year:y,teacher_budget:teacherBudgetForYear(y),bta_cost:btaRosterCostForYear(y)}))
       };
       const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
       const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="salary_payload.json"; a.click();
