@@ -1420,9 +1420,12 @@ document.getElementById("sl_explain_btn").addEventListener("click", () => {
 }
 
 /* Scenario buttons */
-document.getElementById("compareOnGenerate").addEventListener("change",(e)=>{
-  e.target.dataset.touched="1";
-});
+const compare = document.getElementById("compareOnGenerate");
+if (compare) {
+  compare.addEventListener("change", (e) => {
+    e.target.dataset.touched = "1";
+  });
+}
 document.getElementById("saveScenarioA").addEventListener("click", ()=>{
   scenarios.A = readUIParams();
   saveScenarios();
