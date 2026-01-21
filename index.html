@@ -952,7 +952,7 @@ function wireTableControls(doc){
           if (base == null) return;
           rowValues[col] = +computeCellValue(base, year, params).toFixed(2);
         });
-        stepMap(`Step${row.step}`] = rowValues;
+        stepMap[`Step${row.step}`] = rowValues;
       });
       yearAcc[String(year)] = stepMap;
       return yearAcc;
@@ -1304,8 +1304,8 @@ function initScenarioHandlers(){
   safeAddListener("compareOnGenerate", "change", (e)=>{ e.target.dataset.touched = "1"; });
   safeAddListener("saveScenarioA", "click", ()=>{ scenarios.A = readUIParams(); saveScenarios(); });
   safeAddListener("saveScenarioB", "click", ()=>{ scenarios.B = readUIParams(); saveScenarios(); });
-  safeAddListener("loadScenarioA", "click", ()=>{ if(!scenarios.A){ alert("Scenario A is empty."); return; } writeUIParams(scenarios.A); });
-  safeAddListener("loadScenarioB", "click", ()=>{ if(!scenarios.B){ alert("Scenario B is empty."); return; } writeUIParams(scenarios.B); });
+  safeAddListener("loadScenarioA", "click", ()=>{ if(!scenarios.A){ alert("Scenario A is empty."); return; } writeUIParams(scenarios.A); updateScenarioStatus(); });
+  safeAddListener("loadScenarioB", "click", ()=>{ if(!scenarios.B){ alert("Scenario B is empty."); return; } writeUIParams(scenarios.B); updateScenarioStatus(); });
 }
 
 function initExportHandlers(){
