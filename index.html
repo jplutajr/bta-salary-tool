@@ -1440,7 +1440,10 @@ document.getElementById("loadScenarioB").addEventListener("click", ()=>{
   writeUIParams(scenarios.B);
 });
 
-loadScenarios();
+window.addEventListener("DOMContentLoaded", () => {
+  loadScenarios();
+  updateScenarioStatus(); // force status to render after DOM exists
+});
 
 /* ------------------------------ AI helper builders (for Bee) ------------------------------ */
 function buildSalaryScheduleForAllYears(maxYear = 5) {
