@@ -41,32 +41,28 @@
   }
 
   /* Make the table as wide as it needs, then scroll horizontally */
-  table{
+  .table-container table{
     border-collapse:collapse;
     width:max-content;     /* KEY: stop squeezing */
     table-layout:auto;     /* KEY: stop forced equal-width columns */
   }
 
-  thead th{
+  .table-container thead th{
     position:sticky;
     top:0;
     background:var(--band);
     color:var(--bandText);
     font-size:.9rem;
+    border:1px solid #cfd6df;
     z-index:1
   }
 
- th,td{
-  border: 1px solid #cbd5e0 !important;
-  padding:6px;
-  font-size:.85rem;
-  vertical-align:top;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-    /* KEY: prevent spill into neighboring cells */
+  .table-container th,
+  .table-container td{
+    border:1px solid #cfd6df;
+    padding:6px 8px;
+    font-size:.85rem;
+    vertical-align:top;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
@@ -99,9 +95,16 @@
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px;align-items:center}
   .row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
   .soft{color:var(--muted);font-size:.9rem}
-  .boot-status{font-weight:600;margin:6px 0}
-  .boot-status.ok{color:var(--green)}
-  .boot-status.error{color:var(--red)}
+
+  /* System status */
+  .sys-status{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px 12px;margin:8px 0}
+  .sys-left{display:flex;flex-direction:column;gap:2px}
+  .sys-title{font-weight:700}
+  .sys-small{font-size:.85rem;color:var(--muted)}
+  .sys-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;background:#e2e8f0;color:#111827}
+  .sys-pill.ok{background:#dcfce7;color:#166534}
+  .sys-pill.error{background:#fee2e2;color:#991b1b}
+  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
 
   /* Gold shading for cells that have roster staff */
   .cell-has-roster{ background:#facc15 !important; }
@@ -205,25 +208,26 @@
   </div>
 </div>
 
-  <div class="container">
- <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
-<p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
+<div class="container">
+  <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
+  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
 
-<!-- Visible System Status -->
-<div class="sys-status" id="systemStatusCard">
-  <div class="sys-left">
-    <div class="sys-title">System Status</div>
-    <div class="sys-small" id="systemStatusText">Checking…</div>
+  <!-- Visible System Status -->
+  <div class="sys-status" id="systemStatusCard">
+    <div class="sys-left">
+      <div class="sys-title">System Status</div>
+      <div class="sys-small" id="systemStatusText">Checking…</div>
+      <div class="sys-small">Self-check: <span id="systemSelfCheck">n/a</span></div>
+    </div>
+    <div class="sys-left" style="align-items:flex-end;text-align:right">
+      <div class="sys-small">Build</div>
+      <div class="mono sys-small" id="buildTimeText">loading…</div>
+      <div class="sys-small" id="buildVersionText">version: unknown</div>
+      <div class="sys-pill" id="libStatusPill">libs</div>
+    </div>
   </div>
-  <div class="sys-left" style="align-items:flex-end;text-align:right">
-    <div class="sys-small">Build</div>
-    <div class="mono sys-small" id="buildTimeText">loading…</div>
-    <div class="sys-pill" id="libStatusPill">libs</div>
-  </div>
-</div>
 
-<div class="form-container">
-
+  <div class="form-container">
     <div class="form-column">
 
       <fieldset>
@@ -440,6 +444,12 @@ const {
 } = window.SalaryMath || {};
 const BUILD_VERSION = "v0.4.0";
 const BUILD_TIME = new Date().toLocaleString();
+
+const safeAddListener = (id, event, handler) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+};
+
 /* ------------------------------ Percent dropdown builder ------------------------------ */
 (function buildPctDropdowns(){
   const ids = ["year1","year2","year3","year4","year5"];
@@ -449,7 +459,7 @@ const BUILD_TIME = new Date().toLocaleString();
     const label = p.toFixed(2).replace(/\.00$/,"") + "%";
     options.push({val, label});
   }
-  ids.forEach((id, idx)=>{
+  ids.forEach((id)=>{
     const sel = document.getElementById(id);
     if(!sel) return;
     sel.innerHTML = options.map(o=>`<option value="${o.val}">${o.label}</option>`).join("");
@@ -561,6 +571,7 @@ let lastSalaryPayload = null;
 /* scenario storage */
 const scenarioKey = "bta_salary_scenarios_v1";
 let scenarios = { A:null, B:null };
+
 function updateScenarioStatus(){
   const el = document.getElementById("scenarioStatus");
   const hasA = !!(scenarios && scenarios.A);
@@ -572,7 +583,6 @@ function updateScenarioStatus(){
 
   const compare = document.getElementById("compareOnGenerate");
   if (compare) {
-    // Auto-check only if both exist AND user hasn't manually toggled it before
     if (hasA && hasB && compare.dataset.touched !== "1") compare.checked = true;
     if (!(hasA && hasB)) compare.checked = false;
   }
@@ -588,23 +598,6 @@ function loadScenarios(){
     if(s) scenarios = JSON.parse(s) || scenarios;
   }catch(e){}
   updateScenarioStatus();
-}
-
-function updateScenarioStatus(){
-  const el = document.getElementById("scenarioStatus");
-  const hasA = !!scenarios.A, hasB = !!scenarios.B;
-  if(el){
-    el.textContent = `A: ${hasA?'saved':'empty'} · B: ${hasB?'saved':'empty'}`;
-  }
-  const compare = document.getElementById("compareOnGenerate");
-  if(compare){
-    if(hasA && hasB && compare.dataset.touched!=="1"){
-      compare.checked = true;
-    }
-    if(!(hasA && hasB)){
-      compare.checked = false;
-    }
-  }
 }
 
 /* ===== NEW: scenario param resolver (UI / A / B / both) ===== */
@@ -743,7 +736,7 @@ function generateTableHtmlSingle(years, paramsOverride, label){
     <label><input type="checkbox" id="toggleTA"> Hide TA Column</label>
   </div>`;
 
-  const cell = 'style="border:1px solid var(--line);padding:6px;vertical-align:top"';
+  const cell = 'style="border:1px solid #cfd6df;padding:6px 8px;vertical-align:top"';
 
   years.forEach(year=>{
     const tb=teacherBudgetForYear(year, paramsOverride), cost=btaRosterCostForYear(year, paramsOverride);
@@ -851,7 +844,8 @@ function openTable(html, years, compareMode){
   let w;
   try{ w=window.open("", "_blank"); }catch(e){}
   if(!w || w.closed || typeof w.document==="undefined"){
-    document.getElementById("renderArea").innerHTML = html;
+    const renderArea = document.getElementById("renderArea");
+    if(renderArea) renderArea.innerHTML = html;
     wireTableControls(document);
     return;
   }
@@ -862,7 +856,8 @@ function openTable(html, years, compareMode){
     <style>
     body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#eef2f7;color:#1a202c}
     table{border-collapse:collapse}
-    th,td{border:1px solid #cbd5e0;padding:6px;font-size:12px;vertical-align:top}
+    th,td{border:1px solid #cfd6df;padding:6px 8px;font-size:12px;vertical-align:top}
+    thead th{background:#2d3748;color:#fff}
     .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15;word-break:break-word}
     .detail.show{display:block}
     .main{font-weight:700;color:#b7791f}
@@ -931,7 +926,7 @@ function wireTableControls(doc){
   const generatePdfBtn = doc.getElementById("generatePdfBtn");
   if(generatePdfBtn){
     generatePdfBtn.addEventListener("click", ()=>{
-      if(typeof window.jspdf==="undefined"){ alert("PDF library not loaded."); return; }
+      if(!(window.jspdf && window.jspdf.jsPDF)){ alert("PDF library not loaded."); return; }
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF("l", "pt", "letter");
       const tables = doc.querySelectorAll("table");
@@ -983,7 +978,7 @@ function writeUIParams(p){
 }
 
 /* ------------------------------ Roster export helpers ------------------------------ */
-function setRosterStatus(msg){ document.getElementById("rosterStatus").textContent = msg; }
+function setRosterStatus(msg){ const el = document.getElementById("rosterStatus"); if(el) el.textContent = msg; }
 
 /* ------------------------------ Roster export ------------------------------ */
 function exportRosterCSV(year, paramsOverride, suffix){
@@ -1076,18 +1071,24 @@ function exportAllYearsXLSX(years, scenarioChoice){
 }
 
 /* ------------------------------ UI wiring ------------------------------ */
-document.getElementById("useSampleRosterBtn").addEventListener("click",()=>{
+safeAddListener("useSampleRosterBtn", "click", ()=>{
   const embedded=document.getElementById("embeddedRoster").value.trim();
-  document.getElementById("rosterText").value=embedded;
+  const rosterText = document.getElementById("rosterText");
+  if(rosterText) rosterText.value=embedded;
   roster=parseCSV(embedded);
   setRosterStatus(`Loaded sample (${roster.length}).`);
 });
-document.getElementById("clearRosterBtn").addEventListener("click",()=>{
-  document.getElementById("rosterText").value=""; roster=[]; setRosterStatus("Roster cleared.");
+
+safeAddListener("clearRosterBtn", "click", ()=>{
+  const rosterText = document.getElementById("rosterText");
+  if(rosterText) rosterText.value="";
+  roster=[]; setRosterStatus("Roster cleared.");
 });
-document.getElementById("loadRosterBtn").addEventListener("click",()=>{
+
+safeAddListener("loadRosterBtn", "click", ()=>{
   const txt=(document.getElementById("rosterText").value||"").trim();
-  const file=document.getElementById("rosterFile").files[0];
+  const fileEl = document.getElementById("rosterFile");
+  const file=fileEl ? fileEl.files[0] : null;
 
   const finish=(list)=>{
     roster=Array.isArray(list)?list:[]; setRosterStatus(roster.length?`Loaded ${roster.length} rows.`:'Loaded 0 rows.');
@@ -1138,84 +1139,54 @@ document.getElementById("loadRosterBtn").addEventListener("click",()=>{
   }catch(e){}
 })();
 
-function runSelfTest(){
-  const out = document.getElementById("selfTestStatus");
-  const results = [];
-  const pushResult = (label, pass, detail) => {
-    const icon = pass ? "✅" : "❌";
-    results.push(`${icon} ${label}${detail ? ` (${detail})` : ""}`);
-  };
-  try{
-    const stepCheck = stepForYear(10, 1) === 10 && stepForYear(10, 2) === 11 && stepForYear(22, 5) === 22;
-    pushResult("Step progression (Y1 same, Y2+ advance, cap at 22)", stepCheck);
-  }catch(e){
-    pushResult("Step progression", false, e.message);
-  }
-  try{
-    const params = { increases: { 1: { flat: 1000, rate: 0.02 } } };
-    const mathCheck = +computeCellValue(50000, 1, params).toFixed(2) === 52020;
-    pushResult("Flat+% math (50,000 + 1,000 then 2%)", mathCheck);
-  }catch(e){
-    pushResult("Flat+% math", false, e.message);
-  }
-  try{
-    const paramsA = { increases: { 1: { flat: 0, rate: 0.05 } } };
-    const paramsB = { increases: { 1: { flat: 500, rate: 0.01 } } };
-    const aVal = +computeCellValue(50000, 1, paramsA).toFixed(2);
-    const bVal = +computeCellValue(50000, 1, paramsB).toFixed(2);
-    const scenarioCheck = aVal !== bVal;
-    pushResult("Scenario A vs B produces different results", scenarioCheck, `A=${aVal}, B=${bVal}`);
-  }catch(e){
-    pushResult("Scenario A vs B", false, e.message);
-  }
-  out.textContent = results.join(" | ");
-}
-
-function updateBuildInfo(){
-  const versionEl = document.getElementById("buildVersion");
-  const timeEl = document.getElementById("buildTime");
-  const selfEl = document.getElementById("buildSelfCheck");
-  const systemVersion = document.getElementById("systemVersion");
-  const systemTime = document.getElementById("systemBuildTime");
+function updateSystemStatus(){
+  const systemStatusText = document.getElementById("systemStatusText");
+  const buildTimeText = document.getElementById("buildTimeText");
+  const buildVersionText = document.getElementById("buildVersionText");
+  const libStatusPill = document.getElementById("libStatusPill");
   const systemSelf = document.getElementById("systemSelfCheck");
-  if(systemSelf){
-    if(typeof systemSelfCheck === "function"){
-      const systemResult = systemSelfCheck();
-      const systemOk = systemResult && systemResult.status === "PASS";
-      systemSelf.textContent = systemOk
-        ? "All checks passed"
-        : `Self-check failed${systemResult?.reason ? `: ${systemResult.reason}` : ""}`;
-      systemSelf.classList.toggle("ok", systemOk);
-      systemSelf.classList.toggle("error", !systemOk);
-    } else {
-  // Self-check is optional. If missing, do NOT show it as an error.
-  systemSelf.textContent = "n/a";
-  systemSelf.classList.remove("error");
-  systemSelf.classList.remove("ok");
-}
 
-  }
-  if(versionEl) versionEl.textContent = BUILD_VERSION;
-  if(timeEl) timeEl.textContent = BUILD_TIME;
-  if(selfEl){
-    if(typeof runSelfCheck === "function"){
-      const result = runSelfCheck();
-      const ok = result && result.status === "PASS";
-      selfEl.textContent = ok ? "PASS" : `FAIL${result?.reason ? `: ${result.reason}` : ""}`;
-      selfEl.classList.toggle("ok", ok);
-      selfEl.classList.toggle("error", !ok);
-    } else {
-      selfEl.textContent = "FAIL: self-check unavailable";
-      selfEl.classList.add("error");
+  const coreOk = typeof stepForYear === "function"
+    && typeof computeCellValue === "function"
+    && typeof computeSalaryAt === "function";
+  const jsPdfOk = !!(window.jspdf && window.jspdf.jsPDF);
+  const xlsxOk = typeof XLSX !== "undefined";
+  const libsOk = jsPdfOk && xlsxOk;
+
+  let selfCheckMessage = "n/a";
+  if(typeof systemSelfCheck === "function"){
+    try{
+      const result = systemSelfCheck();
+      const ok = result?.ok === false ? false : result?.status === "FAIL" ? false : true;
+      selfCheckMessage = ok
+        ? "All checks passed"
+        : `Self-check failed${result?.reason ? `: ${result.reason}` : ""}`;
+    }catch(e){
+      selfCheckMessage = "Self-check: error";
     }
   }
-  if(systemVersion) systemVersion.textContent = BUILD_VERSION || "unknown";
-  if(systemTime) systemTime.textContent = BUILD_TIME || "unknown";
-  if(systemSelf && systemSelf.textContent === "") systemSelf.textContent = "unknown";
+
+  if(systemStatusText){
+    systemStatusText.textContent = coreOk && libsOk ? "OK" : "ERROR";
+    systemStatusText.classList.toggle("ok", coreOk && libsOk);
+    systemStatusText.classList.toggle("error", !(coreOk && libsOk));
+  }
+
+  if(buildTimeText) buildTimeText.textContent = BUILD_TIME || "unknown";
+  if(buildVersionText) buildVersionText.textContent = `version: ${BUILD_VERSION || "unknown"}`;
+
+  if(libStatusPill){
+    libStatusPill.textContent = libsOk ? "libs ok" : "libs missing";
+    libStatusPill.classList.toggle("ok", libsOk);
+    libStatusPill.classList.toggle("error", !libsOk);
+  }
+
+  if(systemSelf){
+    systemSelf.textContent = selfCheckMessage;
+  }
 }
 
 function checkBootStatus(){
-  const bootEl = document.getElementById("bootStatus");
   const required = {
     stepForYear,
     computeSalaryAt,
@@ -1226,12 +1197,6 @@ function checkBootStatus(){
     .map(([name]) => name);
 
   if(missing.length){
-    const message = `❌ Error: Missing ${missing.join(", ")}`;
-    if(bootEl){
-      bootEl.textContent = `Boot Status: ${message}`;
-      bootEl.classList.remove("ok");
-      bootEl.classList.add("error");
-    }
     console.error(`Boot check failed. Missing: ${missing.join(", ")}`);
     const generateBtn = document.getElementById("generateTableButton");
     const lookupBtn = document.getElementById("sl_btn");
@@ -1240,212 +1205,197 @@ function checkBootStatus(){
     return false;
   }
 
-  if(bootEl){
-    bootEl.textContent = "Boot Status: ✅ Loaded";
-    bootEl.classList.remove("error");
-    bootEl.classList.add("ok");
-  }
   return true;
 }
 
-updateBuildInfo();
-const bootOk = checkBootStatus();
-if(bootOk){
-  document.getElementById("generateTableButton").addEventListener("click", generateTable);
-  document.getElementById("selfTestBtn").addEventListener("click", runSelfTest);
+function initScenarioHandlers(){
+  safeAddListener("compareOnGenerate", "change", (e)=>{ e.target.dataset.touched = "1"; });
+  safeAddListener("saveScenarioA", "click", ()=>{ scenarios.A = readUIParams(); saveScenarios(); });
+  safeAddListener("saveScenarioB", "click", ()=>{ scenarios.B = readUIParams(); saveScenarios(); });
+  safeAddListener("loadScenarioA", "click", ()=>{ if(!scenarios.A){ alert("Scenario A is empty."); return; } writeUIParams(scenarios.A); });
+  safeAddListener("loadScenarioB", "click", ()=>{ if(!scenarios.B){ alert("Scenario B is empty."); return; } writeUIParams(scenarios.B); });
 }
 
-/* Exports (UPDATED with scenario selector) */
-if(bootOk){
-document.getElementById("exportCsvBtn").addEventListener("click", () => {
-  const y = parseInt(document.getElementById("exportYear").value, 10);
-  if (isNaN(y) || y < 0 || y > 5) { alert("Enter export year 0–5."); return; }
+function initExportHandlers(){
+  safeAddListener("exportCsvBtn", "click", () => {
+    const y = parseInt(document.getElementById("exportYear").value, 10);
+    if (isNaN(y) || y < 0 || y > 5) { alert("Enter export year 0–5."); return; }
 
-  const scenarioChoice = document.getElementById("exportScenario").value;
+    const scenarioChoice = document.getElementById("exportScenario").value;
 
-  if (scenarioChoice === "both") {
-    exportRosterCSVBoth(y);
-    return;
-  }
-
-  if (scenarioChoice === "A") {
-    if(!scenarios.A){ alert("Scenario A is empty. Save UI → A first."); return; }
-    exportRosterCSV(y, scenarios.A, "_A");
-    return;
-  }
-
-  if (scenarioChoice === "B") {
-    if(!scenarios.B){ alert("Scenario B is empty. Save UI → B first."); return; }
-    exportRosterCSV(y, scenarios.B, "_B");
-    return;
-  }
-
-  exportRosterCSV(y, null, "_UI");
-});
-
-document.getElementById("exportXlsxBtn").addEventListener("click", () => {
-  const ty = document.getElementById("tableYear").value.trim();
-  let years = [];
-  if (ty.includes("-")) {
-    const [s, e] = ty.split("-").map(n => parseInt(n, 10));
-    for (let y = s; y <= e; y++) years.push(y);
-  } else { years = [parseInt(ty, 10)]; }
-  years = years.filter(y => y >= 0 && y <= 5);
-  if (!years.length) { alert("Enter a year or year-range in Contract Years (e.g., 1-5)."); return; }
-
-  const scenarioChoice = document.getElementById("exportScenario").value;
-  exportAllYearsXLSX(years, scenarioChoice);
-});
-
-/* Staff lookup (UPDATED with scenario selector + Both) */
-document.getElementById("sl_btn").addEventListener("click", () => {
-  const out = document.getElementById("sl_out");
-  const explainOut = document.getElementById("sl_explain_out");
-  const y = parseInt(document.getElementById("sl_year").value, 10);
-  const stBase = parseInt(document.getElementById("sl_step").value, 10);
-  const sc = document.getElementById("sl_scale").value.trim().toUpperCase();
-  const showHI = document.getElementById("sl_show_hi").value === "yes";
-  const scenarioChoice = document.getElementById("sl_scenario").value;
-
-  if (isNaN(y) || y < 0 || y > 5) { out.textContent = "Enter contract year 0–5."; return; }
-  if (isNaN(stBase) || stBase < 1 || stBase > 22) { out.textContent = "Enter step 1–22."; return; }
-
-  if (explainOut) explainOut.textContent = "";
-  lastSalaryPayload = {
-    year: y,
-    step: stBase,
-    column: sc,
-    scenarioChoice,
-    showHI,
-    results: []
-  };
-
-  const renderOne = (label, paramsOverride) => {
-    const params = paramsOverride || readUIParams();
-    const st = stepForYear(stBase, y);
-    const row = baseTable.find(r => r.step === st);
-    if (!row || row[sc] == null) return `<div><strong>${label}</strong>: No data for that step/column.</div>`;
-
-    const curr = computeCellValue(row[sc], y, params);
-    const explanation = explainSalaryAt
-      ? explainSalaryAt(stBase, sc, 1, y, params)
-      : null;
-    const pct = getContributionPct(y, paramsOverride);
-    const indNet = computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
-    const famNet = computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
-
-    lastSalaryPayload.results.push({
-      label,
-      gross: +curr.toFixed(2),
-      explanation
-    });
-
-    return `
-      <div style="margin-top:6px">
-        <div><span class="pill">${label}</span></div>
-        <div><strong>${sc}</strong>, Step <strong>${st}</strong>, Year <strong>${y}</strong></div>
-        <div>Salary: <strong>${money(curr)}</strong></div>
-        ${showHI ? `
-          <div class="soft">After Health Insurance (${Math.round(pct*100)}% of 2025 premiums):
-            <br>• Individual: <strong>${money(indNet)}</strong>
-            <br>• Family: <strong>${money(famNet)}</strong>
-          </div>` : ``}
-      </div>`;
-  };
-
-  if (scenarioChoice === "both") {
-    const parts = [];
-    const missing = [];
-    if (scenarios.A) {
-      parts.push(renderOne("Scenario A", scenarios.A));
-    } else {
-      missing.push("Scenario A");
-    }
-    if (scenarios.B) {
-      parts.push(renderOne("Scenario B", scenarios.B));
-    } else {
-      missing.push("Scenario B");
-    }
-    if (missing.length) {
-      parts.unshift(`<div class="soft">Missing: ${missing.join(" and ")}. Save via “Save UI → A/B” to enable.</div>`);
-    }
-    if (!parts.length) {
-      out.textContent = "Scenario A and Scenario B are empty. Save UI → A/B first.";
+    if (scenarioChoice === "both") {
+      exportRosterCSVBoth(y);
       return;
     }
-    out.innerHTML = parts.join("");
-    return;
-  }
 
-  if (scenarioChoice === "A") {
-    if(!scenarios.A){ out.textContent="Scenario A is empty. Save UI → A first."; return; }
-    out.innerHTML = renderOne("Scenario A", scenarios.A);
-    return;
-  }
-
-  if (scenarioChoice === "B") {
-    if(!scenarios.B){ out.textContent="Scenario B is empty. Save UI → B first."; return; }
-    out.innerHTML = renderOne("Scenario B", scenarios.B);
-    return;
-  }
-
-  out.innerHTML = renderOne("Current UI", null);
-});
-
-document.getElementById("sl_explain_btn").addEventListener("click", () => {
-  const out = document.getElementById("sl_explain_out");
-  if (!out) return;
-  if (!lastSalaryPayload || !Array.isArray(lastSalaryPayload.results) || !lastSalaryPayload.results.length) {
-    out.textContent = "Run a salary lookup first.";
-    return;
-  }
-  const blocks = lastSalaryPayload.results.map(result => {
-    const explanation = result.explanation;
-    if (!explanation) {
-      return `<div><strong>${result.label}</strong>: Explanation unavailable.</div>`;
+    if (scenarioChoice === "A") {
+      if(!scenarios.A){ alert("Scenario A is empty. Save UI → A first."); return; }
+      exportRosterCSV(y, scenarios.A, "_A");
+      return;
     }
-    return `
-      <div style="margin-top:8px">
-        <div><span class="pill">${result.label}</span></div>
-        <div>Start: Step <strong>${explanation.startStep}</strong>, Column <strong>${explanation.column}</strong></div>
-        <div>Step change: <strong>${explanation.stepAdvanced ? "Yes" : "No"}</strong> — ${explanation.stepReason}</div>
-        <div>Flat add: <strong>${money(explanation.flatAdd)}</strong></div>
-        <div>Percent increase: <strong>${(explanation.pctIncrease * 100).toFixed(2)}%</strong></div>
-        <div>Final salary: <strong>${money(explanation.finalSalary)}</strong></div>
-      </div>
-    `;
+
+    if (scenarioChoice === "B") {
+      if(!scenarios.B){ alert("Scenario B is empty. Save UI → B first."); return; }
+      exportRosterCSV(y, scenarios.B, "_B");
+      return;
+    }
+
+    exportRosterCSV(y, null, "_UI");
   });
-  out.innerHTML = blocks.join("");
-});
+
+  safeAddListener("exportXlsxBtn", "click", () => {
+    let years = parseYearRange(document.getElementById("tableYear").value)
+      .filter(y => y >= 0 && y <= 5);
+    if (!years.length) { alert("Enter a year or year-range in Contract Years (e.g., 1-5)."); return; }
+
+    const scenarioChoice = document.getElementById("exportScenario").value;
+    exportAllYearsXLSX(years, scenarioChoice);
+  });
 }
 
-/* Scenario buttons */
-const compare = document.getElementById("compareOnGenerate");
-if (compare) {
-  compare.addEventListener("change", (e) => {
-    e.target.dataset.touched = "1";
+function initLookupHandlers(){
+  safeAddListener("sl_btn", "click", () => {
+    const out = document.getElementById("sl_out");
+    const explainOut = document.getElementById("sl_explain_out");
+    const y = parseInt(document.getElementById("sl_year").value, 10);
+    const stBase = parseInt(document.getElementById("sl_step").value, 10);
+    const sc = document.getElementById("sl_scale").value.trim().toUpperCase();
+    const showHI = document.getElementById("sl_show_hi").value === "yes";
+    const scenarioChoice = document.getElementById("sl_scenario").value;
+
+    if (isNaN(y) || y < 0 || y > 5) { out.textContent = "Enter contract year 0–5."; return; }
+    if (isNaN(stBase) || stBase < 1 || stBase > 22) { out.textContent = "Enter step 1–22."; return; }
+
+    if (explainOut) explainOut.textContent = "";
+    lastSalaryPayload = {
+      year: y,
+      step: stBase,
+      column: sc,
+      scenarioChoice,
+      showHI,
+      results: []
+    };
+
+    const renderOne = (label, paramsOverride) => {
+      const params = paramsOverride || readUIParams();
+      const st = stepForYear(stBase, y);
+      const row = baseTable.find(r => r.step === st);
+      if (!row || row[sc] == null) return `<div><strong>${label}</strong>: No data for that step/column.</div>`;
+
+      const curr = computeCellValue(row[sc], y, params);
+      const explanation = explainSalaryAt
+        ? explainSalaryAt(stBase, sc, 1, y, params)
+        : null;
+      const pct = getContributionPct(y, paramsOverride);
+      const indNet = computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
+      const famNet = computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
+
+      lastSalaryPayload.results.push({
+        label,
+        gross: +curr.toFixed(2),
+        explanation
+      });
+
+      return `
+        <div style="margin-top:6px">
+          <div><span class="pill">${label}</span></div>
+          <div><strong>${sc}</strong>, Step <strong>${st}</strong>, Year <strong>${y}</strong></div>
+          <div>Salary: <strong>${money(curr)}</strong></div>
+          ${showHI ? `
+            <div class="soft">After Health Insurance (${Math.round(pct*100)}% of 2025 premiums):
+              <br>• Individual: <strong>${money(indNet)}</strong>
+              <br>• Family: <strong>${money(famNet)}</strong>
+            </div>` : ``}
+        </div>`;
+    };
+
+    if (scenarioChoice === "both") {
+      const parts = [];
+      const missing = [];
+      if (scenarios.A) {
+        parts.push(renderOne("Scenario A", scenarios.A));
+      } else {
+        missing.push("Scenario A");
+      }
+      if (scenarios.B) {
+        parts.push(renderOne("Scenario B", scenarios.B));
+      } else {
+        missing.push("Scenario B");
+      }
+      if (missing.length) {
+        parts.unshift(`<div class="soft">Missing: ${missing.join(" and ")}. Save via “Save UI → A/B” to enable.</div>`);
+      }
+      if (!parts.length) {
+        out.textContent = "Scenario A and Scenario B are empty. Save UI → A/B first.";
+        return;
+      }
+      out.innerHTML = parts.join("");
+      return;
+    }
+
+    if (scenarioChoice === "A") {
+      if(!scenarios.A){ out.textContent="Scenario A is empty. Save UI → A first."; return; }
+      out.innerHTML = renderOne("Scenario A", scenarios.A);
+      return;
+    }
+
+    if (scenarioChoice === "B") {
+      if(!scenarios.B){ out.textContent="Scenario B is empty. Save UI → B first."; return; }
+      out.innerHTML = renderOne("Scenario B", scenarios.B);
+      return;
+    }
+
+    out.innerHTML = renderOne("Current UI", null);
+  });
+
+  safeAddListener("sl_explain_btn", "click", () => {
+    const out = document.getElementById("sl_explain_out");
+    if (!out) return;
+    if (!lastSalaryPayload || !Array.isArray(lastSalaryPayload.results) || !lastSalaryPayload.results.length) {
+      out.textContent = "Run a salary lookup first.";
+      return;
+    }
+    const blocks = lastSalaryPayload.results.map(result => {
+      const explanation = result.explanation;
+      if (!explanation) {
+        return `<div><strong>${result.label}</strong>: Explanation unavailable.</div>`;
+      }
+      return `
+        <div style="margin-top:8px">
+          <div><span class="pill">${result.label}</span></div>
+          <div>Start: Step <strong>${explanation.startStep}</strong>, Column <strong>${explanation.column}</strong></div>
+          <div>Step change: <strong>${explanation.stepAdvanced ? "Yes" : "No"}</strong> — ${explanation.stepReason}</div>
+          <div>Flat add: <strong>${money(explanation.flatAdd)}</strong></div>
+          <div>Percent increase: <strong>${(explanation.pctIncrease * 100).toFixed(2)}%</strong></div>
+          <div>Final salary: <strong>${money(explanation.finalSalary)}</strong></div>
+        </div>
+      `;
+    });
+    out.innerHTML = blocks.join("");
   });
 }
-document.getElementById("saveScenarioA").addEventListener("click", ()=>{
-  scenarios.A = readUIParams();
-  saveScenarios();
-});
-document.getElementById("saveScenarioB").addEventListener("click", ()=>{
-  scenarios.B = readUIParams();
-  saveScenarios();
-});
-document.getElementById("loadScenarioA").addEventListener("click", ()=>{
-  if(!scenarios.A){ alert("Scenario A is empty."); return; }
-  writeUIParams(scenarios.A);
-});
-document.getElementById("loadScenarioB").addEventListener("click", ()=>{
-  if(!scenarios.B){ alert("Scenario B is empty."); return; }
-  writeUIParams(scenarios.B);
-});
+
+function initScenarioStatus(){
+  updateScenarioStatus();
+}
+
+function initSystemStatus(){
+  updateSystemStatus();
+}
 
 window.addEventListener("DOMContentLoaded", () => {
+  initScenarioStatus();
+  initSystemStatus();
+  initScenarioHandlers();
+
+  const bootOk = checkBootStatus();
+  if(bootOk){
+    safeAddListener("generateTableButton", "click", generateTable);
+    initExportHandlers();
+    initLookupHandlers();
+  }
+
   loadScenarios();
-  updateScenarioStatus(); // force status to render after DOM exists
 });
 
 /* ------------------------------ AI helper builders (for Bee) ------------------------------ */
@@ -1540,7 +1490,7 @@ Model rules:
       ctx.ui = readUIParams();
       ctx.scenarios = scenarios;
       ctx.lastSalaryLookup = lastSalaryPayload;
-    }catch(_){}
+    }catch(_){ }
     return ctx;
   }
 
