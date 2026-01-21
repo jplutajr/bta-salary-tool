@@ -350,23 +350,69 @@
     <p class="hint">Columns: <strong>Name</strong>, <strong>Step</strong>, <strong>Column</strong>, <strong>FTE</strong>. Step is capped at 22.</p>
 
 <textarea id="embeddedRoster" style="display:none">Name,Step,Column,FTE
-"A, Sample",12,M30,1
-"B, Sample",22,M50,1
-"C, Sample",7,BA30,0.6
-"D, Sample",15,M30,1
-"E, Sample",9,BA10,0.8
-"F, Sample",18,M,1
-"G, Sample",10,BA,1
-"H, Sample",20,M10,1
-"I, Sample",6,BA20,0.7
-"J, Sample",3,BA50,1
+"AIELLO, PATRICK",16,M50,1.0
+"BARKER, RYAN",8,M50,1.0
+"BOUZOS-REILLY, MARIE",11,M50,1.0
+"BOYD, NINFA",3,M30,1.0
+"CANDELARIA, AMANDA",6,M10,1.0
+"CARMAN, HAILEE M",4,M20,1.0
+"CHERY, FRANCESCA",14,M50,1.0
+"CHERY, FRANCESCA **",14,M50,1.0
+"CONKLIN, SUSAN A *",9,M20,1.0
+"CORBETT, DANIELLE",10,M50,1.0
+"DEROSA, MICHAEL",9,M50,1.0
+"DESOUZA, ALEXANDRA **",4,M50,1.0
+"DILRUKSHI, DILANGANI",13,M,1.0
+"DOSCHER, DANIELLE",14,M50,1.0
+"DOUGHERTY, M.*",5,M50,1.0
+"ELLIOTT, DAVID K",22,M50,1.0
+"ERB, ARTHUR (hired 2-3-25) **",2,M20,1.0
+"FEDERICO, ALLISON C",6,M50,1.0
+"GIANIS, ROBIN",22,M50,1.0
+"GIOSI, KENNETH J",22,M30,1.0
+"HAND, JEFFREY C *",15,M10,1.0
+"HANSEN, CAITLIN E",7,M50,1.0
+"HOUSE, TOM",15,M50,1.0
+"KAISER, KAMERON H *",11,M20,1.0
+"KAVE, REBECCA",5,M50,1.0
+"KESTLER, LINDSEY **",2,M30,1.0
+"KNIGHT, KAREN P",7,M,1.0
+"LIBERATORE, LOUIS*",8,M,1.0
+"LIZZOL, DIANE **",2,M,1.0
+"MAIONE, ROSANNA",22,M,1.0
+"MARTIN-KIRWAN, E.",10,M50,1.0
+"MARTINS, JULIANNA E",7,M40,1.0
+"MERKERT, NINA A*",22,M50,1.0
+"MEYER, HENRY*",22,M40,1.0
+"MEYERS, STEVEN D",22,M50,1.0
+"MINICHIELLO, KRISTINA P",6,M30,1.0
+"NAGLIERI, RALPH (.6 @145,000 salary) **",22,M50,1.0
+"NEUBAUER, CORINNE M*",19,M50,1.0
+"NEUBAUER, JEFFREY T",16,M50,1.0
+"NICHOLS, NATALIA",22,M50,1.0
+"O'CONNOR, JUSTIN (hired 9-30-24) **",2,BA10,1.0
+"OZSU, HAMRA",9,M50,1.0
+"PARKER, ALETA Y",22,M50,1.0
+"PETERSON, ALYSSA T",7,M,1.0
+"PLUTA, JENNA L *",10,M50,1.0
+"PLUTA, JOSEPH S",10,M50,1.0
+"REILLY, JOHN R*",22,M50,1.0
+"RODRIGUES, BRIANNA",8,M10,1.0
+"SANCHEZ, LINDSEY",14,M50,1.0
+"SCHAEFER, ALLISON M",3,M,1.0
+"SELVAGGIO, ANGELA M *",6,M50,1.0
+"SHARP, KELLY A",11,M50,1.0
+"SHERMAN, MICHAEL J*",9,M30,1.0
+"SUAREZ, JEN",8,M50,1.0
+"SULLIVAN, ANDREA*",7,M50,1.0
+"WALLER, JULIE (.4 @66,502) **",2,M,1.0
 </textarea>
 
     <textarea id="rosterText" rows="5" placeholder="(Optional) Paste CSV here. If blank, the embedded sample will be used."></textarea>
     <div class="roster-actions">
       <input type="file" id="rosterFile" accept=".xlsx,.xls,.csv"/>
       <button type="button" id="loadRosterBtn">Load Roster</button>
-      <button type="button" id="useSampleRosterBtn">Use Sample</button>
+      <button type="button" id="useSampleRosterBtn">Restore Default Roster</button>
       <button type="button" id="clearRosterBtn">Clear</button>
       <span class="hint" id="rosterStatus"></span>
     </div>
@@ -906,7 +952,7 @@ function wireTableControls(doc){
           if (base == null) return;
           rowValues[col] = +computeCellValue(base, year, params).toFixed(2);
         });
-        stepMap[`Step${row.step}`] = rowValues;
+        stepMap(`Step${row.step}`] = rowValues;
       });
       yearAcc[String(year)] = stepMap;
       return yearAcc;
@@ -1108,13 +1154,15 @@ safeAddListener("useSampleRosterBtn", "click", ()=>{
   const rosterText = document.getElementById("rosterText");
   if(rosterText) rosterText.value=embedded;
   roster=parseCSV(embedded);
-  setRosterStatus(`Loaded sample (${roster.length}).`);
+  setRosterStatus(`Restored default roster (${roster.length}).`);
+  try{ localStorage.setItem("bta_roster_json", JSON.stringify(roster)); }catch(e){}
 });
 
 safeAddListener("clearRosterBtn", "click", ()=>{
   const rosterText = document.getElementById("rosterText");
   if(rosterText) rosterText.value="";
   roster=[]; setRosterStatus("Roster cleared.");
+  try{ localStorage.removeItem("bta_roster_json"); }catch(e){}
 });
 
 safeAddListener("loadRosterBtn", "click", ()=>{
@@ -1167,7 +1215,19 @@ safeAddListener("loadRosterBtn", "click", ()=>{
 (function(){
   try{
     const s=localStorage.getItem("bta_roster_json");
-    if(s){ const arr=JSON.parse(s)||[]; if(arr.length){ roster=arr; setRosterStatus(`Restored ${roster.length} rows from this browser.`); } }
+    if(s){
+      const arr=JSON.parse(s)||[];
+      if(arr.length){
+        roster=arr;
+        setRosterStatus(`Restored ${roster.length} rows from this browser.`);
+        return;
+      }
+    }
+    const embedded=document.getElementById("embeddedRoster").value.trim();
+    const rosterText = document.getElementById("rosterText");
+    if(rosterText) rosterText.value=embedded;
+    roster=parseCSV(embedded);
+    setRosterStatus(`Loaded default roster (${roster.length}). Upload/paste to override.`);
   }catch(e){}
 })();
 
