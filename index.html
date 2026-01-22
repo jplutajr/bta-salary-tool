@@ -175,6 +175,19 @@
   #beeAiClear:hover{ background:#374151; }
   #beeAiSave{ background:#0ea5e9; }
   #beeAiSave:hover{ background:#0284c7; }
+
+  .app-error{
+    border:1px solid #fca5a5;
+    background:#fee2e2;
+    color:#7f1d1d;
+    padding:12px 14px;
+    border-radius:10px;
+    margin:12px 0 16px;
+  }
+  .app-error-title{font-weight:800;font-size:1.05rem;margin-bottom:4px}
+  .app-error-msg{font-size:.9rem;margin-bottom:8px}
+  .app-error-actions button{background:#991b1b}
+  .app-error-actions button:hover{background:#7f1d1d}
 </style>
 
 <!-- PDF libs -->
@@ -211,6 +224,15 @@
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
   <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
+  <div id="appLoadError" class="app-error" style="display:none;">
+    <div class="app-error-title">App failed to load</div>
+    <div id="appLoadErrorMsg" class="app-error-msg">
+      JavaScript did not finish loading. Open DevTools → Console for the error.
+    </div>
+    <div class="app-error-actions">
+      <button type="button" id="retryBtn">Retry</button>
+    </div>
+  </div>
 
   <!-- Visible System Status -->
   <div class="sys-status" id="systemStatusCard">
@@ -386,7 +408,7 @@
 "MEYER, HENRY*",22,M40,1.0
 "MEYERS, STEVEN D",22,M50,1.0
 "MINICHIELLO, KRISTINA P",6,M30,1.0
-"NAGLIERI, RALPH (.6 @145,000 salary) **",22,M50,1.0
+"NAGLIERI, RALPH (.6 @145,000 salary) **",22,M50,0.6
 "NEUBAUER, CORINNE M*",19,M50,1.0
 "NEUBAUER, JEFFREY T",16,M50,1.0
 "NICHOLS, NATALIA",22,M50,1.0
@@ -405,7 +427,7 @@
 "SHERMAN, MICHAEL J*",9,M30,1.0
 "SUAREZ, JEN",8,M50,1.0
 "SULLIVAN, ANDREA*",7,M50,1.0
-"WALLER, JULIE (.4 @66,502) **",2,M,1.0
+"WALLER, JULIE (.4 @66,502) **",2,M,0.4
 </textarea>
 
     <textarea id="rosterText" rows="5" placeholder="(Optional) Paste CSV here. If blank, the embedded sample will be used."></textarea>
@@ -490,11 +512,52 @@ const {
 } = window.SalaryMath || {};
 const BUILD_VERSION = "v0.4.0";
 const BUILD_TIME = new Date().toLocaleString();
+window.__APP_BOOTED__ = false;
 
 const safeAddListener = (id, event, handler) => {
   const el = document.getElementById(id);
   if (el) el.addEventListener(event, handler);
 };
+
+function showAppError(msg){
+  const banner = document.getElementById("appLoadError");
+  if (banner) banner.style.display = "block";
+  const msgEl = document.getElementById("appLoadErrorMsg");
+  if (msgEl && msg) msgEl.textContent = msg;
+  const retryBtn = document.getElementById("retryBtn");
+  if (retryBtn) retryBtn.addEventListener("click", ()=> location.reload());
+}
+
+window.addEventListener("error", (e)=>{
+  try{
+    const msg = e?.error?.stack || e?.message || "Unknown JS error";
+    showAppError(msg);
+    const systemStatusText = document.getElementById("systemStatusText");
+    if(systemStatusText){
+      systemStatusText.textContent = "ERROR";
+      systemStatusText.classList.add("error");
+      systemStatusText.classList.remove("ok");
+    }
+  }catch(_){}
+});
+window.addEventListener("unhandledrejection", (e)=>{
+  try{
+    const msg = e?.reason?.stack || String(e?.reason || "Unhandled promise rejection");
+    showAppError(msg);
+    const systemStatusText = document.getElementById("systemStatusText");
+    if(systemStatusText){
+      systemStatusText.textContent = "ERROR";
+      systemStatusText.classList.add("error");
+      systemStatusText.classList.remove("ok");
+    }
+  }catch(_){}
+});
+
+setTimeout(() => {
+  if (!window.__APP_BOOTED__) {
+    showAppError("JS did not finish booting. Check DevTools → Console. Common cause: syntax error or missing element id.");
+  }
+}, 1500);
 
 /* ------------------------------ Percent dropdown builder ------------------------------ */
 (function buildPctDropdowns(){
@@ -614,6 +677,10 @@ window.baseTable = baseTable;
 let roster=[];
 let lastSalaryPayload = null;
 
+/* =========================
+   DO NOT EDIT: scenario storage + status wiring
+   Small syntax errors here will break the entire app.
+   ========================= */
 /* scenario storage */
 const scenarioKey = "bta_salary_scenarios_v1";
 let scenarios = { A:null, B:null };
@@ -735,6 +802,10 @@ function buildRosterIndex(years, paramsOverride){
   return idx;
 }
 
+/* =========================
+   DO NOT EDIT: core salary math + table generation
+   Small syntax errors here will break the entire app.
+   ========================= */
 /* ------------------------------ Rendering ------------------------------ */
 function bannerCard(year, tb, cost){
   const rem=+(tb - cost).toFixed(2);
@@ -892,7 +963,7 @@ function openTable(html, years, compareMode){
   if(!w || w.closed || typeof w.document==="undefined"){
     const renderArea = document.getElementById("renderArea");
     if(renderArea) renderArea.innerHTML = html;
-    wireTableControls(document);
+    wireTableControls(document, years);
     return;
   }
   w.document.write(`
@@ -928,10 +999,10 @@ function openTable(html, years, compareMode){
   <body>${html}</body>
   </html>`);
   w.document.close();
-  wireTableControls(w.document);
+  wireTableControls(w.document, years);
 }
 
-function wireTableControls(doc){
+function wireTableControls(doc, yearsFromCaller){
   const toggleHI = doc.getElementById("toggleInsurance");
   const toggleY0 = doc.getElementById("toggleYear0");
   const toggleTA = doc.getElementById("toggleTA");
@@ -974,7 +1045,12 @@ function wireTableControls(doc){
   const downloadJsonBtn = doc.getElementById("downloadJsonBtn");
   if(downloadJsonBtn){
     downloadJsonBtn.addEventListener("click", ()=>{
-      const years=parseYearRange(document.getElementById("tableYear").value);
+      const years = Array.isArray(yearsFromCaller) && yearsFromCaller.length
+        ? yearsFromCaller
+        : (()=>{
+            const yEl = doc.getElementById("tableYear");
+            return yEl ? parseYearRange(yEl.value) : [];
+          })();
       const payload={
         meta:{
           exportedAt:new Date().toISOString(),
@@ -1058,6 +1134,10 @@ function writeUIParams(p){
 /* ------------------------------ Roster export helpers ------------------------------ */
 function setRosterStatus(msg){ const el = document.getElementById("rosterStatus"); if(el) el.textContent = msg; }
 
+/* =========================
+   DO NOT EDIT: export handlers
+   Small syntax errors here will break the entire app.
+   ========================= */
 /* ------------------------------ Roster export ------------------------------ */
 function exportRosterCSV(year, paramsOverride, suffix){
   const params = paramsOverride || readUIParams();
@@ -1259,9 +1339,16 @@ function updateSystemStatus(){
   }
 
   if(systemStatusText){
-    systemStatusText.textContent = coreOk && libsOk ? "OK" : "ERROR";
-    systemStatusText.classList.toggle("ok", coreOk && libsOk);
-    systemStatusText.classList.toggle("error", !(coreOk && libsOk));
+    if (coreOk && libsOk) {
+      systemStatusText.textContent = "Loaded";
+      systemStatusText.classList.add("ok");
+      systemStatusText.classList.remove("error");
+    } else {
+      systemStatusText.textContent = "ERROR";
+      systemStatusText.classList.add("error");
+      systemStatusText.classList.remove("ok");
+      showAppError("JavaScript failed to load required modules. Open DevTools → Console for details.");
+    }
   }
 
   if(buildTimeText) buildTimeText.textContent = BUILD_TIME || "unknown";
@@ -1488,6 +1575,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   loadScenarios();
+  window.__APP_BOOTED__ = true;
 });
 
 /* ------------------------------ AI helper builders (for Bee) ------------------------------ */
