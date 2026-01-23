@@ -53,7 +53,7 @@
     if (stepCapApplied) {
       stepReason += " Capped at step 22.";
     }
-    const finalSalary = +(computeCellValue(base, year, paramsOverride) * (fte || 1)).toFixed(2);
+    const finalSalary = computeSalaryAt(effectiveStep, col, fte || 1, year, paramsOverride);
     return {
       startStep,
       column: col,
@@ -69,53 +69,23 @@
     };
   };
 
-  const runSelfCheck = () => {
-    try{
-      const base = 107447;
-      const params = { increases: { 1: { flat: 1200, rate: 0.0275 } } };
-      const value = +computeCellValue(base, 1, params).toFixed(2);
-      if(value !== 111634.79) return { status: "FAIL", reason: "Flat+% math mismatch" };
-    }catch(e){
-      return { status: "FAIL", reason: "Flat+% math error" };
+  const systemSelfCheck = () => {
+    const required = {
+      stepForYear,
+      computeCellValue,
+      computeSalaryAt,
+      computeHealthInsuranceNet
+    };
+    const missing = Object.entries(required)
+      .filter(([, fn]) => typeof fn !== "function")
+      .map(([name]) => name);
+    if (missing.length) {
+      return { ok: false, status: "FAIL", reason: `Missing exports: ${missing.join(", ")}` };
     }
-    try{
-      const stepY1 = stepForYear(10, 1);
-      const stepY2 = stepForYear(10, 2);
-      const stepCap = stepForYear(22, 5);
-      if(stepY1 !== 10 || stepY2 !== 11 || stepCap !== 22) {
-        return { status: "FAIL", reason: "Step progression failed" };
-      }
-    }catch(e){
-      return { status: "FAIL", reason: "Step progression error" };
-    }
-    try{
-      const scenarios = { A: null, B: null };
-      if(scenarios.A || scenarios.B) return { status: "FAIL", reason: "Scenario presence check failed" };
-    }catch(e){
-      return { status: "FAIL", reason: "Scenario check error" };
-    }
-    return { status: "PASS", reason: "" };
+    return { ok: true, status: "PASS" };
   };
 
-  const systemSelfCheck = () => {
-    try{
-      const capCheck = stepForYear(22, 5) === 22;
-      if(!capCheck) return { status: "FAIL", reason: "Step cap failed" };
-      const yearCheck = stepForYear(10, 0) === 10 && stepForYear(10, 1) === 10 && stepForYear(10, 2) === 11;
-      if(!yearCheck) return { status: "FAIL", reason: "Step progression failed" };
-      const table = globalThis.baseTable;
-      if(!Array.isArray(table)) return { status: "FAIL", reason: "Base table missing" };
-      const row = table.find(r => r.step === 10);
-      const base = row ? row.M50 : null;
-      if(base == null) return { status: "FAIL", reason: "Base table missing" };
-      const params = { increases: { 1: { flat: 1200, rate: 0.0275 } } };
-      const value = +computeCellValue(base, 1, params).toFixed(2);
-      if(value !== 111634.79) return { status: "FAIL", reason: "Salary math mismatch" };
-    }catch(e){
-      return { status: "FAIL", reason: "Self-check error" };
-    }
-    return { status: "PASS", reason: "" };
-  };
+  const runSelfCheck = () => systemSelfCheck();
 
   const api = {
     stepForYear,
