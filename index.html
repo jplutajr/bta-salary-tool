@@ -31,7 +31,7 @@ Changelog:
   button:hover{background:#0f172a}
   .roster-card{margin-top:12px;padding:12px;border:1px solid #e2e8f0;background:#fcfcfc;border-radius:8px}
   .roster-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .lookup-card{margin-top:14px;padding:12px;border:1px solid #e2e8f0;background:#fafafa;border-radius:8px}
+  .lookup-card{margin-top:14px;padding:12px;border:1px solid #e2e8f0;background:#fafafa}
   #renderArea{margin-top:16px}
 
   /* =========================
@@ -279,179 +279,19 @@ Changelog:
       <fieldset>
         <legend>Health Insurance Contribution (by Contract Year)</legend>
         <div class="form-group"><label>2025–26</label>
-          <select id="contributionY1">
-            <option value="19" selected>19%</option>
-            <option value="19.2">19.2%</option>
-            <option value="19.4">19.4%</option>
-            <option value="19.6">19.6%</option>
-            <option value="19.8">19.8%</option>
-            <option value="20">20%</option>
-            <option value="20.2">20.2%</option>
-            <option value="20.4">20.4%</option>
-            <option value="20.6">20.6%</option>
-            <option value="20.8">20.8%</option>
-            <option value="21">21%</option>
-            <option value="21.2">21.2%</option>
-            <option value="21.4">21.4%</option>
-            <option value="21.6">21.6%</option>
-            <option value="21.8">21.8%</option>
-            <option value="22">22%</option>
-            <option value="22.2">22.2%</option>
-            <option value="22.4">22.4%</option>
-            <option value="22.6">22.6%</option>
-            <option value="22.8">22.8%</option>
-            <option value="23">23%</option>
-            <option value="23.2">23.2%</option>
-            <option value="23.4">23.4%</option>
-            <option value="23.6">23.6%</option>
-            <option value="23.8">23.8%</option>
-            <option value="24">24%</option>
-            <option value="24.2">24.2%</option>
-            <option value="24.4">24.4%</option>
-            <option value="24.6">24.6%</option>
-            <option value="24.8">24.8%</option>
-            <option value="25">25%</option>
-          </select>
+          <select id="contributionY1"></select>
         </div>
         <div class="form-group"><label>2026–27</label>
-          <select id="contributionY2">
-            <option value="19" selected>19%</option>
-            <option value="19.2">19.2%</option>
-            <option value="19.4">19.4%</option>
-            <option value="19.6">19.6%</option>
-            <option value="19.8">19.8%</option>
-            <option value="20">20%</option>
-            <option value="20.2">20.2%</option>
-            <option value="20.4">20.4%</option>
-            <option value="20.6">20.6%</option>
-            <option value="20.8">20.8%</option>
-            <option value="21">21%</option>
-            <option value="21.2">21.2%</option>
-            <option value="21.4">21.4%</option>
-            <option value="21.6">21.6%</option>
-            <option value="21.8">21.8%</option>
-            <option value="22">22%</option>
-            <option value="22.2">22.2%</option>
-            <option value="22.4">22.4%</option>
-            <option value="22.6">22.6%</option>
-            <option value="22.8">22.8%</option>
-            <option value="23">23%</option>
-            <option value="23.2">23.2%</option>
-            <option value="23.4">23.4%</option>
-            <option value="23.6">23.6%</option>
-            <option value="23.8">23.8%</option>
-            <option value="24">24%</option>
-            <option value="24.2">24.2%</option>
-            <option value="24.4">24.4%</option>
-            <option value="24.6">24.6%</option>
-            <option value="24.8">24.8%</option>
-            <option value="25">25%</option>
-          </select>
+          <select id="contributionY2"></select>
         </div>
         <div class="form-group"><label>2027–28</label>
-          <select id="contributionY3">
-            <option value="19" selected>19%</option>
-            <option value="19.2">19.2%</option>
-            <option value="19.4">19.4%</option>
-            <option value="19.6">19.6%</option>
-            <option value="19.8">19.8%</option>
-            <option value="20">20%</option>
-            <option value="20.2">20.2%</option>
-            <option value="20.4">20.4%</option>
-            <option value="20.6">20.6%</option>
-            <option value="20.8">20.8%</option>
-            <option value="21">21%</option>
-            <option value="21.2">21.2%</option>
-            <option value="21.4">21.4%</option>
-            <option value="21.6">21.6%</option>
-            <option value="21.8">21.8%</option>
-            <option value="22">22%</option>
-            <option value="22.2">22.2%</option>
-            <option value="22.4">22.4%</option>
-            <option value="22.6">22.6%</option>
-            <option value="22.8">22.8%</option>
-            <option value="23">23%</option>
-            <option value="23.2">23.2%</option>
-            <option value="23.4">23.4%</option>
-            <option value="23.6">23.6%</option>
-            <option value="23.8">23.8%</option>
-            <option value="24">24%</option>
-            <option value="24.2">24.2%</option>
-            <option value="24.4">24.4%</option>
-            <option value="24.6">24.6%</option>
-            <option value="24.8">24.8%</option>
-            <option value="25">25%</option>
-          </select>
+          <select id="contributionY3"></select>
         </div>
         <div class="form-group"><label>2028–29</label>
-          <select id="contributionY4">
-            <option value="19" selected>19%</option>
-            <option value="19.2">19.2%</option>
-            <option value="19.4">19.4%</option>
-            <option value="19.6">19.6%</option>
-            <option value="19.8">19.8%</option>
-            <option value="20">20%</option>
-            <option value="20.2">20.2%</option>
-            <option value="20.4">20.4%</option>
-            <option value="20.6">20.6%</option>
-            <option value="20.8">20.8%</option>
-            <option value="21">21%</option>
-            <option value="21.2">21.2%</option>
-            <option value="21.4">21.4%</option>
-            <option value="21.6">21.6%</option>
-            <option value="21.8">21.8%</option>
-            <option value="22">22%</option>
-            <option value="22.2">22.2%</option>
-            <option value="22.4">22.4%</option>
-            <option value="22.6">22.6%</option>
-            <option value="22.8">22.8%</option>
-            <option value="23">23%</option>
-            <option value="23.2">23.2%</option>
-            <option value="23.4">23.4%</option>
-            <option value="23.6">23.6%</option>
-            <option value="23.8">23.8%</option>
-            <option value="24">24%</option>
-            <option value="24.2">24.2%</option>
-            <option value="24.4">24.4%</option>
-            <option value="24.6">24.6%</option>
-            <option value="24.8">24.8%</option>
-            <option value="25">25%</option>
-          </select>
+          <select id="contributionY4"></select>
         </div>
         <div class="form-group"><label>2029–30</label>
-          <select id="contributionY5">
-            <option value="19" selected>19%</option>
-            <option value="19.2">19.2%</option>
-            <option value="19.4">19.4%</option>
-            <option value="19.6">19.6%</option>
-            <option value="19.8">19.8%</option>
-            <option value="20">20%</option>
-            <option value="20.2">20.2%</option>
-            <option value="20.4">20.4%</option>
-            <option value="20.6">20.6%</option>
-            <option value="20.8">20.8%</option>
-            <option value="21">21%</option>
-            <option value="21.2">21.2%</option>
-            <option value="21.4">21.4%</option>
-            <option value="21.6">21.6%</option>
-            <option value="21.8">21.8%</option>
-            <option value="22">22%</option>
-            <option value="22.2">22.2%</option>
-            <option value="22.4">22.4%</option>
-            <option value="22.6">22.6%</option>
-            <option value="22.8">22.8%</option>
-            <option value="23">23%</option>
-            <option value="23.2">23.2%</option>
-            <option value="23.4">23.4%</option>
-            <option value="23.6">23.6%</option>
-            <option value="23.8">23.8%</option>
-            <option value="24">24%</option>
-            <option value="24.2">24.2%</option>
-            <option value="24.4">24.4%</option>
-            <option value="24.6">24.6%</option>
-            <option value="24.8">24.8%</option>
-            <option value="25">25%</option>
-          </select>
+          <select id="contributionY5"></select>
         </div>
         <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
       </fieldset>
@@ -789,6 +629,24 @@ setTimeout(() => {
     sel.value = "0.0275";
   });
 })();
+
+function populateContributionSelect(selectId, min = 19, max = 25, step = 0.1, selected = 19){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const options = [];
+  for(let v=min; v<=max+1e-9; v+=step){
+    const fixed = v.toFixed(1);
+    const value = fixed.replace(/\.0$/,"");
+    const label = `${value}%`;
+    options.push({ value, label });
+  }
+  sel.innerHTML = options.map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
+  sel.value = String(selected);
+}
+
+["contributionY1","contributionY2","contributionY3","contributionY4","contributionY5"].forEach(id=>{
+  populateContributionSelect(id, 19, 25, 0.1, 19);
+});
 
 /* ------------------------------ Constants ------------------------------ */
 const IND_PREM_MONTH = 1479.53, FAM_PREM_MONTH = 3367.80;
