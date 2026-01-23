@@ -854,9 +854,9 @@ function getParamsOrWarn(choice){
 
 function getContributionPct(year, paramsOverride){
   const key = "contributionY"+year;
-  if(paramsOverride && paramsOverride.hi_contrib && paramsOverride.hi_contrib[year]!=null) return +paramsOverride.hi_contrib[year];
+  if(paramsOverride && paramsOverride.hi_contrib && paramsOverride.hi_contrib[year]!=null) return +paramsOverride.hi_contrib[year] / 100;
   const el=document.getElementById(key);
-  return el?parseFloat(el.value):0.19;
+  return el?parseFloat(el.value) / 100:0.19;
 }
 function gfForYear(y, paramsOverride){
   const base = paramsOverride ? +paramsOverride.gf_base : parseFloat(document.getElementById("gfBase").value||"0");
@@ -1119,28 +1119,100 @@ function openTableNewWindow(html, years){
     <title>Salary Schedule</title>
     <style>
     ${styleText}
-    body{margin:0;background:#eef2f7}
-    .new-window-actions{display:flex;gap:10px;flex-wrap:wrap;margin:10px}
+    body{margin:0;background:#eef2f7;font-size:12px}
+    .new-window-actions{position:sticky;top:0;z-index:10;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:8px 12px}
+    .schedule-wrapper{padding:12px}
+    .schedule-toolbar-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .schedule-toolbar-group label{font-weight:600}
+    #scheduleViewport{max-width:100%;overflow:auto}
+    #scheduleRoot{transform-origin:top left}
+    .table-container th,.table-container td{font-size:10.5px}
     @media print{
       .actions,.banner,.compare-head,.new-window-actions{display:none !important;}
+      #scheduleRoot{transform:none !important;}
+      .schedule-wrapper{padding:0 !important;}
       .table-container{border:none !important;overflow:visible !important;}
       .compare-wrap{display:block !important;}
+      .table-container table{table-layout:auto !important;width:100% !important;}
+      .table-container th,.table-container td{font-size:9px !important;}
       .table-container thead th{position:static !important;}
     }
     </style>
   </head>
   <body>
     <div class="new-window-actions">
-      <button type="button" id="newWindowPrintBtn">Print</button>
-      <button type="button" id="newWindowCloseBtn">Close</button>
+      <div class="schedule-toolbar-group">
+        <button type="button" id="newWindowPrintBtn">Print</button>
+        <button type="button" id="newWindowPrintFitBtn">Print (Fit)</button>
+        <button type="button" id="newWindowCloseBtn">Close</button>
+      </div>
+      <div class="schedule-toolbar-group">
+        <label><input type="checkbox" id="fitToWindowToggle" checked> Fit to Window</label>
+        <label for="zoomSelect">Zoom</label>
+        <select id="zoomSelect">
+          <option value="0.8">80%</option>
+          <option value="0.9">90%</option>
+          <option value="1" selected>100%</option>
+          <option value="1.1">110%</option>
+        </select>
+      </div>
     </div>
-    ${html}
+    <div class="schedule-wrapper">
+      <div id="scheduleViewport">
+        <div id="scheduleRoot">
+          ${html}
+        </div>
+      </div>
+    </div>
   </body>
   </html>`);
   w.document.close();
   wireTableControls(w.document, years);
+
+  const scheduleRoot = w.document.getElementById("scheduleRoot");
+  const fitToggle = w.document.getElementById("fitToWindowToggle");
+  const zoomSelect = w.document.getElementById("zoomSelect");
+  const applyScale = () => {
+    if(!scheduleRoot || !fitToggle || !zoomSelect) return;
+    if(fitToggle.checked){
+      const available = w.document.documentElement.clientWidth - 24;
+      const contentWidth = scheduleRoot.scrollWidth || available;
+      const fitScale = Math.min(1, Math.max(0.65, available / contentWidth));
+      scheduleRoot.style.transform = `scale(${fitScale})`;
+      zoomSelect.disabled = true;
+    }else{
+      const zoomScale = parseFloat(zoomSelect.value || "1");
+      scheduleRoot.style.transform = `scale(${zoomScale})`;
+      zoomSelect.disabled = false;
+    }
+  };
+
+  if(fitToggle){
+    fitToggle.addEventListener("change", applyScale);
+  }
+  if(zoomSelect){
+    zoomSelect.addEventListener("change", applyScale);
+  }
+  w.addEventListener("resize", applyScale);
+  applyScale();
+
   const printBtn = w.document.getElementById("newWindowPrintBtn");
   if(printBtn){ printBtn.addEventListener("click", ()=> w.print()); }
+  const printFitBtn = w.document.getElementById("newWindowPrintFitBtn");
+  if(printFitBtn){
+    printFitBtn.addEventListener("click", ()=>{
+      const prevFit = fitToggle ? fitToggle.checked : false;
+      if(fitToggle) fitToggle.checked = false;
+      applyScale();
+      setTimeout(() => {
+        w.print();
+        setTimeout(() => {
+          if(fitToggle) fitToggle.checked = prevFit;
+          applyScale();
+        }, 500);
+      }, 100);
+    });
+  }
   const closeBtn = w.document.getElementById("newWindowCloseBtn");
   if(closeBtn){ closeBtn.addEventListener("click", ()=> w.close()); }
 }
@@ -1411,7 +1483,7 @@ function setRosterStatus(msg){ const el = document.getElementById("rosterStatus"
 
 function saveRosterToStorage(rawCsv, parsed){
   try{ localStorage.setItem(rosterStorageRawKey, rawCsv || ""); }catch(e){}
-  try{ localStorage.setItem(rosterStorageParsedKey, JSON.stringify(parsed || [])); }catch(e){}
+  try{ localStorage.setItem(rosterStorageParsedKey, JSON.stringify(parsed or [])); }catch(e){}
 }
 
 function applyRoster(list, rawCsv, statusMsg){
@@ -2070,7 +2142,7 @@ Model rules:
   });
 
   btnSave.addEventListener('click', ()=>{
-    const txt = beeLog.innerText || '';
+    const txt = beeLog.innerText or '';
     const blob = new Blob([txt],{type:'text/plain'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a'); a.href=url; a.download='bee_chat_log.txt';
