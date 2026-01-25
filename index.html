@@ -273,39 +273,19 @@
       <fieldset>
         <legend>Health Insurance Contribution (by Contract Year)</legend>
         <div class="form-group"><label>2025–26</label>
-          <select id="contributionY1">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY1"></select>
         </div>
         <div class="form-group"><label>2026–27</label>
-          <select id="contributionY2">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY2"></select>
         </div>
         <div class="form-group"><label>2027–28</label>
-          <select id="contributionY3">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY3"></select>
         </div>
         <div class="form-group"><label>2028–29</label>
-          <select id="contributionY4">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY4"></select>
         </div>
         <div class="form-group"><label>2029–30</label>
-          <select id="contributionY5">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY5"></select>
         </div>
         <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
       </fieldset>
@@ -727,31 +707,22 @@ function populateContributionSelect(){
   if(!selects.length) return;
 
   selects.forEach(select => {
-    const currentPct = select.value ? parseFloat(select.value) * 100 : null;
+    const currentValue = select.value ? parseFloat(select.value) : null;
     select.innerHTML = "";
-    const baseOptions = [0, 10, 12, 15, 18];
-    const rangeOptions = [];
-    for(let tenths=190; tenths<=250; tenths++){
-      rangeOptions.push(tenths / 10);
-    }
-    const allOptions = [...baseOptions, ...rangeOptions];
-    const uniqueSorted = Array.from(new Set(allOptions)).sort((a,b)=>a-b);
     const optionValues = new Set();
-    uniqueSorted.forEach(pct => {
+    for(let tenths=190; tenths<=250; tenths+=5){
+      const pct = tenths / 10;
       const value = (pct / 100).toFixed(3);
       optionValues.add(value);
-      const label = Number.isInteger(pct) ? `${pct}` : pct.toFixed(1).replace(/\.0$/, "");
       const opt = document.createElement("option");
       opt.value = value;
-      opt.textContent = `${label}%`;
+      opt.textContent = `${pct.toFixed(1)}%`;
       select.appendChild(opt);
-    });
-    let targetValue = currentPct != null && !Number.isNaN(currentPct)
-      ? (Math.round(currentPct * 10) / 10 / 100).toFixed(3)
-      : null;
-    if(!targetValue || !optionValues.has(targetValue)){
-      targetValue = (19 / 100).toFixed(3);
     }
+    let targetValue = currentValue != null && !Number.isNaN(currentValue)
+      ? currentValue.toFixed(3)
+      : null;
+    if(!targetValue || !optionValues.has(targetValue)) targetValue = (19 / 100).toFixed(3);
     select.value = targetValue;
   });
 }
@@ -802,7 +773,7 @@ function toInitials(name){
   if(!name) return "";
   return String(name).split(/\s+/).filter(Boolean).map(part=>part[0].toUpperCase()).join('');
 }
-function buildRosterIndex(){
+function buildRosterIndex(years, paramsOverride){
   const idx = {};
   roster.forEach(r=>{
     const step=+r.Step||1, col=(r.Column||"").toUpperCase().trim();
