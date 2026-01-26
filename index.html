@@ -744,7 +744,7 @@ function populateContributionSelect(){
     const currentValue = select.value ? parseFloat(select.value) : null;
     select.innerHTML = "";
     const optionValues = new Set();
-    for(let tenths=190; tenths<=250; tenths+=5){
+    for(let tenths=190; tenths<=250; tenths+=1){
       const pct = tenths / 10;
       const value = (pct / 100).toFixed(3);
       optionValues.add(value);
@@ -753,9 +753,11 @@ function populateContributionSelect(){
       opt.textContent = `${pct.toFixed(1)}%`;
       select.appendChild(opt);
     }
-    let targetValue = currentValue != null && !Number.isNaN(currentValue)
-      ? currentValue.toFixed(3)
-      : null;
+    let targetValue = null;
+    if(currentValue != null && !Number.isNaN(currentValue)){
+      const normalizedPct = Math.round(currentValue * 1000) / 10;
+      targetValue = (normalizedPct / 100).toFixed(3);
+    }
     if(!targetValue || !optionValues.has(targetValue)) targetValue = (19 / 100).toFixed(3);
     select.value = targetValue;
   });
@@ -1019,8 +1021,8 @@ function openTableNewWindow(html, years){
   <html>
   <head>
     <title>Salary Schedule</title>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"><\/script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js"></script>
     <style>
     body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#eef2f7;color:#1a202c}
     table{border-collapse:collapse}
@@ -1042,7 +1044,8 @@ function openTableNewWindow(html, years){
     .compare-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;margin:8px 10px 12px}
     .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;background:#e2e8f0;color:#111827;}
     .table-container{overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff;margin:6px 10px 16px}
-    .table-container table{width:max-content;table-layout:auto}
+    .table-container table{width:max-content;min-width:100%;table-layout:auto}
+    .table-container th,.table-container td{white-space:nowrap}
     .cell-has-roster{ background:#facc15 !important; }
     .cell-has-roster .main{ color:#78350f; }
     .new-window-actions{position:sticky;top:0;z-index:10;display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:8px 12px}
@@ -1267,8 +1270,9 @@ function exportRosterCSV(year, paramsOverride, suffix){
   if(!roster.length){ alert("Load a roster first."); return; }
   const lines = [["Name","Step","Column","FTE","Salary_Y"+year]];
   roster.forEach(r=>{
-    const st=stepForYear(+r.Step||1, year);
-    const sal=computeSalaryAt(st,r.Column,+r.FTE||1,year, params);
+    const baseStep = +r.Step || 1;
+    const st = stepForYear(baseStep, year);
+    const sal = computeSalaryAt(baseStep, r.Column, +r.FTE||1, year, params);
     lines.push([r.Name, st, r.Column, r.FTE, sal.toFixed(2)]);
   });
   const csv = lines.map(row => row.map(x=>{
@@ -1297,9 +1301,10 @@ function exportRosterCSVBoth(year){
 
   const lines = [["Name","Step","Column","FTE","Salary_A","Salary_B"]];
   roster.forEach(r=>{
-    const st=stepForYear(+r.Step||1, year);
-    const salA = hasA ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.A) : "";
-    const salB = hasB ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.B) : "";
+    const baseStep = +r.Step || 1;
+    const st = stepForYear(baseStep, year);
+    const salA = hasA ? computeSalaryAt(baseStep, r.Column, +r.FTE||1, year, scenarios.A) : "";
+    const salB = hasB ? computeSalaryAt(baseStep, r.Column, +r.FTE||1, year, scenarios.B) : "";
     lines.push([r.Name, st, r.Column, r.FTE, salA ? salA.toFixed(2) : "", salB ? salB.toFixed(2) : ""]);
   });
   const csv = lines.map(row => row.map(x=>{
@@ -1322,8 +1327,9 @@ function exportAllYearsXLSX(years, scenarioChoice){
   const addScenarioSheets = (label, paramsOverride)=>{
     years.forEach(y=>{
       const rows = roster.map(r=>{
-        const st=stepForYear(+r.Step||1, y);
-        const sal=computeSalaryAt(st,r.Column,+r.FTE||1,y, paramsOverride || readUIParams());
+        const baseStep = +r.Step || 1;
+        const st = stepForYear(baseStep, y);
+        const sal = computeSalaryAt(baseStep, r.Column, +r.FTE||1, y, paramsOverride || readUIParams());
         return {Name:r.Name,Step:st,Column:r.Column,FTE:+r.FTE||1,Salary:sal};
       });
       const ws=XLSX.utils.json_to_sheet(rows,{header:["Name","Step","Column","FTE","Salary"]});
@@ -1834,7 +1840,7 @@ function buildRosterDerivedForAllYears(maxYear = 5) {
       const effStep = stepForYear(baseStep, y);
       const col = r.Column;
       const fte = +r.FTE || 1;
-      const salary = computeSalaryAt(effStep, col, fte, y, params);
+      const salary = computeSalaryAt(baseStep, col, fte, y, params);
       return { Name: r.Name, baseStep, year: y, step: effStep, Column: col, FTE: fte, salary };
     });
   }
