@@ -273,39 +273,19 @@
       <fieldset>
         <legend>Health Insurance Contribution (by Contract Year)</legend>
         <div class="form-group"><label>2025–26</label>
-          <select id="contributionY1">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY1"></select>
         </div>
         <div class="form-group"><label>2026–27</label>
-          <select id="contributionY2">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY2"></select>
         </div>
         <div class="form-group"><label>2027–28</label>
-          <select id="contributionY3">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY3"></select>
         </div>
         <div class="form-group"><label>2028–29</label>
-          <select id="contributionY4">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY4"></select>
         </div>
         <div class="form-group"><label>2029–30</label>
-          <select id="contributionY5">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY5"></select>
         </div>
         <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
       </fieldset>
@@ -501,26 +481,33 @@
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-01-20-1"></script>
+<script src="salary-math.js?v=2026-01-20-1" defer></script>
 <script>
-const salaryMath = window.SalaryMath || {};
-const {
-  stepForYear,
-  computeCellValue,
-  computeSalaryAt,
-  explainSalaryAt,
-  computeHealthInsuranceNet,
-  runSelfCheck,
-  systemSelfCheck
-} = salaryMath;
+let salaryMath = window.SalaryMath || {};
+let stepForYear = salaryMath.stepForYear;
+let computeCellValue = salaryMath.computeCellValue;
+let computeSalaryAt = salaryMath.computeSalaryAt;
+let explainSalaryAt = salaryMath.explainSalaryAt;
+let computeHealthInsuranceNet = salaryMath.computeHealthInsuranceNet;
+let runSelfCheck = salaryMath.runSelfCheck;
+let systemSelfCheck = salaryMath.systemSelfCheck;
+let bootSelfTest = salaryMath.bootSelfTest;
+const syncSalaryMathExports = () => {
+  salaryMath = window.SalaryMath || {};
+  stepForYear = salaryMath.stepForYear;
+  computeCellValue = salaryMath.computeCellValue;
+  computeSalaryAt = salaryMath.computeSalaryAt;
+  explainSalaryAt = salaryMath.explainSalaryAt;
+  computeHealthInsuranceNet = salaryMath.computeHealthInsuranceNet;
+  runSelfCheck = salaryMath.runSelfCheck;
+  systemSelfCheck = salaryMath.systemSelfCheck;
+  bootSelfTest = salaryMath.bootSelfTest;
+};
 const REQUIRED_SALARY_EXPORTS = [
   "stepForYear",
   "computeCellValue",
   "computeSalaryAt",
-  "explainSalaryAt",
-  "computeHealthInsuranceNet",
-  "runSelfCheck",
-  "systemSelfCheck"
+  "computeHealthInsuranceNet"
 ];
 const BUILD_VERSION = "v0.4.0";
 const BUILD_TIME = new Date().toLocaleString();
@@ -744,6 +731,34 @@ function getContributionPct(year, paramsOverride){
   if(paramsOverride && paramsOverride.hi_contrib && paramsOverride.hi_contrib[year]!=null) return +paramsOverride.hi_contrib[year];
   const el=document.getElementById(key);
   return el?parseFloat(el.value):0.19;
+}
+function populateContributionSelect(){
+  const selects = [];
+  for(let i=1;i<=5;i++){
+    const el = document.getElementById("contributionY"+i);
+    if(el) selects.push(el);
+  }
+  if(!selects.length) return;
+
+  selects.forEach(select => {
+    const currentValue = select.value ? parseFloat(select.value) : null;
+    select.innerHTML = "";
+    const optionValues = new Set();
+    for(let tenths=190; tenths<=250; tenths+=5){
+      const pct = tenths / 10;
+      const value = (pct / 100).toFixed(3);
+      optionValues.add(value);
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = `${pct.toFixed(1)}%`;
+      select.appendChild(opt);
+    }
+    let targetValue = currentValue != null && !Number.isNaN(currentValue)
+      ? currentValue.toFixed(3)
+      : null;
+    if(!targetValue || !optionValues.has(targetValue)) targetValue = (19 / 100).toFixed(3);
+    select.value = targetValue;
+  });
 }
 function gfForYear(y, paramsOverride){
   const base = paramsOverride ? +paramsOverride.gf_base : parseFloat(document.getElementById("gfBase").value||"0");
@@ -993,17 +1008,19 @@ function renderTableInline(html, years){
 }
 
 function openTableNewWindow(html, years){
-  let w;
-  try{ w=window.open("", "_blank"); }catch(e){}
-  if(!w || w.closed || typeof w.document==="undefined"){
+  let win;
+  try{ win = window.open("", "_blank"); }catch(e){}
+  if(!win || win.closed || typeof win.document==="undefined"){
     renderTableInline(html, years);
-    setStatus("Popup blocked. Rendered table inline instead.");
+    setStatus("Popup blocked while opening “Generate (New Window)”. Allow popups for this site to open the schedule in a new tab.");
     return;
   }
-  w.document.write(`
+  win.document.write(`
   <html>
   <head>
     <title>Salary Schedule</title>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js"><\/script>
     <style>
     body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#eef2f7;color:#1a202c}
     table{border-collapse:collapse}
@@ -1069,16 +1086,16 @@ function openTableNewWindow(html, years){
     </div>
   </body>
   </html>`);
-  w.document.close();
-  wireTableControls(w.document, years);
+  win.document.close();
+  wireTableControls(win.document, years);
 
-  const scheduleRoot = w.document.getElementById("scheduleRoot");
-  const fitToggle = w.document.getElementById("fitToWindowToggle");
-  const zoomSelect = w.document.getElementById("zoomSelect");
+  const scheduleRoot = win.document.getElementById("scheduleRoot");
+  const fitToggle = win.document.getElementById("fitToWindowToggle");
+  const zoomSelect = win.document.getElementById("zoomSelect");
   const applyScale = () => {
     if(!scheduleRoot || !fitToggle || !zoomSelect) return;
     if(fitToggle.checked){
-      const available = w.document.documentElement.clientWidth - 24;
+      const available = win.document.documentElement.clientWidth - 24;
       const contentWidth = scheduleRoot.scrollWidth || available;
       const fitScale = Math.min(1, Math.max(0.65, available / contentWidth));
       scheduleRoot.style.transform = `scale(${fitScale})`;
@@ -1096,18 +1113,19 @@ function openTableNewWindow(html, years){
   if(zoomSelect){
     zoomSelect.addEventListener("change", applyScale);
   }
-  w.addEventListener("resize", applyScale);
+  win.addEventListener("resize", applyScale);
   applyScale();
 
-  const printBtn = w.document.getElementById("newWindowPrintBtn");
-  if(printBtn){ printBtn.addEventListener("click", ()=> w.print()); }
-  const closeBtn = w.document.getElementById("newWindowCloseBtn");
-  if(closeBtn){ closeBtn.addEventListener("click", ()=> w.close()); }
+  const printBtn = win.document.getElementById("newWindowPrintBtn");
+  if(printBtn){ printBtn.addEventListener("click", ()=> win.print()); }
+  const closeBtn = win.document.getElementById("newWindowCloseBtn");
+  if(closeBtn){ closeBtn.addEventListener("click", ()=> win.close()); }
 
   markRecalc(true);
 }
 
 function wireTableControls(doc, yearsFromCaller){
+  const view = doc.defaultView || window;
   const toggleHI = doc.getElementById("toggleInsurance");
   const toggleY0 = doc.getElementById("toggleYear0");
   const toggleTA = doc.getElementById("toggleTA");
@@ -1145,7 +1163,7 @@ function wireTableControls(doc, yearsFromCaller){
   }
 
   const printBtn = doc.getElementById("printBtn");
-  if(printBtn){ printBtn.addEventListener("click", ()=> doc.defaultView.print()); }
+  if(printBtn && view){ printBtn.addEventListener("click", ()=> view.print()); }
 
   const downloadJsonBtn = doc.getElementById("downloadJsonBtn");
   if(downloadJsonBtn){
@@ -1185,8 +1203,8 @@ function wireTableControls(doc, yearsFromCaller){
   const generatePdfBtn = doc.getElementById("generatePdfBtn");
   if(generatePdfBtn){
     generatePdfBtn.addEventListener("click", ()=>{
-      if(!(window.jspdf && window.jspdf.jsPDF)){ alert("PDF library not loaded."); return; }
-      const { jsPDF } = window.jspdf;
+      if(!(view && view.jspdf && view.jspdf.jsPDF)){ alert("PDF library not loaded."); return; }
+      const { jsPDF } = view.jspdf;
       const pdf = new jsPDF("l", "pt", "letter");
       const tables = doc.querySelectorAll("table");
       let yPos=40;
@@ -1437,6 +1455,7 @@ function markRecalc(affordabilityDone){
 }
 
 function updateSystemStatus(){
+  syncSalaryMathExports();
   const systemStatusText = document.getElementById("systemStatusText");
   const buildTimeText = document.getElementById("buildTimeText");
   const buildVersionText = document.getElementById("buildVersionText");
@@ -1454,6 +1473,10 @@ function updateSystemStatus(){
   const libsOk = jsPdfOk && xlsxOk;
 
   let selfCheckMessage = "n/a";
+  const bootReport = window.__BOOT_SELF_TEST__;
+  if (bootReport && bootReport.ok === false) {
+    selfCheckMessage = `Self-check failed${bootReport.reason ? `: ${bootReport.reason}` : ""}`;
+  }
   if(typeof systemSelfCheck === "function"){
     try{
       const result = systemSelfCheck();
@@ -1504,6 +1527,7 @@ function updateSystemStatus(){
 }
 
 function checkBootStatus(){
+  syncSalaryMathExports();
   const required = {
     stepForYear,
     computeSalaryAt,
@@ -1535,6 +1559,53 @@ function checkBootStatus(){
   }
 
   return true;
+}
+
+function runBootSelfTest(baseReport){
+  const report = baseReport && typeof baseReport === "object"
+    ? { ok: baseReport.ok !== false, reason: baseReport.reason || "" }
+    : { ok: true, reason: "" };
+  const failures = [];
+  try{
+    if(typeof stepForYear !== "function") failures.push("stepForYear unavailable");
+    if(typeof computeCellValue !== "function") failures.push("computeCellValue unavailable");
+    if(typeof parseCSV !== "function") failures.push("parseCSV unavailable");
+
+    if(typeof stepForYear === "function"){
+      const tests = [
+        { base: 10, year: 0, expected: 10 },
+        { base: 10, year: 1, expected: 10 },
+        { base: 10, year: 2, expected: 11 },
+        { base: 10, year: 5, expected: 14 }
+      ];
+      tests.forEach(t => {
+        const got = stepForYear(t.base, t.year);
+        if(got !== t.expected) failures.push(`stepForYear(${t.base},${t.year})=${got}`);
+      });
+    }
+
+    if(typeof computeCellValue === "function"){
+      const sample = computeCellValue(1000, 1, { increases: { 1: { rate: 0.01, flat: 100 } } });
+      if(typeof sample !== "number" || Number.isNaN(sample)) failures.push("computeCellValue returned non-number");
+    }
+
+    const embedded = document.getElementById("embeddedRoster");
+    if(embedded && typeof parseCSV === "function"){
+      const rows = parseCSV(embedded.value || "");
+      if(!Array.isArray(rows) || rows.length <= 0) failures.push("embeddedRoster parse returned 0 rows");
+    }
+  }catch(e){
+    failures.push("boot self-test threw");
+  }
+  if(failures.length){
+    report.ok = false;
+    const combined = report.reason ? `${report.reason}; ${failures.join("; ")}` : failures.join("; ");
+    report.reason = combined;
+    console.error("Boot self-test failed:", failures);
+  }else{
+    console.info("Boot self-test passed");
+  }
+  return report;
 }
 
 function initScenarioHandlers(){
@@ -1713,6 +1784,10 @@ function initSystemStatus(){
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  syncSalaryMathExports();
+  const mathReport = bootSelfTest ? bootSelfTest() : null;
+  window.__BOOT_SELF_TEST__ = runBootSelfTest(mathReport);
+  populateContributionSelect();
   initScenarioStatus();
   initSystemStatus();
   initScenarioHandlers();
