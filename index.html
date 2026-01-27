@@ -241,6 +241,7 @@
       <div class="sys-small" id="systemStatusText">Checking…</div>
       <div class="sys-small">Self-check: <span id="systemSelfCheck">n/a</span></div>
       <div class="sys-small" id="systemDiagnostics">Diagnostics: n/a</div>
+      <div class="sys-small" id="systemDiagnosticsDetails"></div>
     </div>
     <div class="sys-left" style="align-items:flex-end;text-align:right">
       <div class="sys-small">Build</div>
@@ -517,6 +518,92 @@ const safeAddListener = (id, event, handler) => {
   const el = document.getElementById(id);
   if (el) el.addEventListener(event, handler);
 };
+
+function resolveSalaryMathUrl(){
+  try{
+    return new URL("salary-math.js", document.baseURI).href;
+  }catch(e){
+    return "salary-math.js";
+  }
+}
+
+function updateDiagnosticsDetails(){
+  const el = document.getElementById("systemDiagnosticsDetails");
+  if(!el) return;
+  const resolvedUrl = salaryMathScriptUrl || resolveSalaryMathUrl();
+  const exportsOk = REQUIRED_SALARY_EXPORTS.every(
+    (name) => typeof (window.SalaryMath && window.SalaryMath[name]) === "function"
+  );
+  const pieces = [
+    `baseURI: ${document.baseURI}`,
+    `href: ${location.href}`,
+    `salary-math.js: ${resolvedUrl}`,
+    `script status: ${salaryMathScriptStatus}`,
+    `SalaryMath: ${window.SalaryMath ? "yes" : "no"}`,
+    `exports ok: ${exportsOk ? "yes" : "no"}`
+  ];
+  el.textContent = pieces.join(" · ");
+}
+
+function attachSalaryMathScriptEvents(){
+  const scriptEl = document.getElementById("salaryMathScript");
+  if(!scriptEl) return;
+  salaryMathScriptUrl = scriptEl.src || resolveSalaryMathUrl();
+  scriptEl.addEventListener("load", () => {
+    salaryMathScriptStatus = "loaded";
+    updateDiagnosticsDetails();
+  });
+  scriptEl.addEventListener("error", () => {
+    salaryMathScriptStatus = "error";
+    updateDiagnosticsDetails();
+  });
+}
+
+function waitForSalaryMath(ms=2000){
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if(window.SalaryMath){
+        salaryMathScriptStatus = "loaded";
+        updateDiagnosticsDetails();
+        resolve(true);
+        return;
+      }
+      if(Date.now() - start >= ms){
+        resolve(false);
+        return;
+      }
+      setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
+async function ensureSalaryMathLoaded(){
+  attachSalaryMathScriptEvents();
+  salaryMathScriptUrl = resolveSalaryMathUrl();
+  updateDiagnosticsDetails();
+  if(window.SalaryMath) return true;
+  const existingScript = document.getElementById("salaryMathScript");
+  if(existingScript && existingScript.src && existingScript.src !== salaryMathScriptUrl){
+    existingScript.src = salaryMathScriptUrl;
+  }
+  let ok = await waitForSalaryMath(1000);
+  if(ok) return true;
+  const retryScript = document.createElement("script");
+  retryScript.src = salaryMathScriptUrl;
+  retryScript.onload = () => {
+    salaryMathScriptStatus = "loaded";
+    updateDiagnosticsDetails();
+  };
+  retryScript.onerror = () => {
+    salaryMathScriptStatus = "error";
+    updateDiagnosticsDetails();
+  };
+  document.head.appendChild(retryScript);
+  ok = await waitForSalaryMath(1000);
+  return ok;
+}
 
 function showAppError(msg){
   const banner = document.getElementById("appLoadError");
@@ -1125,6 +1212,23 @@ function openTableNewWindow(html, years){
   if(closeBtn){ closeBtn.addEventListener("click", ()=> win.close()); }
 
   markRecalc(true);
+}
+
+function loadScriptInto(win, url){
+  return new Promise((resolve) => {
+    const doc = win.document;
+    const script = doc.createElement("script");
+    script.src = url;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    doc.head.appendChild(script);
+  });
+}
+
+async function loadPopupScripts(win){
+  if(!win || !win.document) return;
+  await loadScriptInto(win, "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+  await loadScriptInto(win, "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/dist/jspdf.plugin.autotable.min.js");
 }
 
 function wireTableControls(doc, yearsFromCaller){
@@ -1798,16 +1902,23 @@ window.addEventListener("DOMContentLoaded", () => {
   initSystemStatus();
   initScenarioHandlers();
 
+  if(!salaryMathOk){
+    showAppError("salary-math.js did not load. Check the URL shown in Diagnostics.");
+    updateDiagnosticsDetails();
+  }
+
   const bootOk = checkBootStatus();
   if(bootOk){
     safeAddListener("generateTableButton", "click", generateTable);
     safeAddListener("generateTableNewWindow", "click", generateTableNewWindow);
     initExportHandlers();
     initLookupHandlers();
+    runUiAssertions();
   }
 
   loadScenarios();
   window.__APP_BOOTED__ = true;
+  updateDiagnosticsDetails();
 });
 
 /* ------------------------------ AI helper builders (for Bee) ------------------------------ */
