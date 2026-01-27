@@ -23,7 +23,8 @@
   const computeSalaryAt = (step, col, fte, year, paramsOverride) => {
     const table = globalThis.baseTable;
     if (!Array.isArray(table)) return 0;
-    const row = table.find(r => r.step === Math.max(1, Math.min(step, 22)));
+    const effectiveStep = stepForYear(step, year);
+    const row = table.find(r => r.step === effectiveStep);
     const base = row ? row[col] : null;
     if (base == null) return 0;
     return +(computeCellValue(base, year, paramsOverride) * (fte || 1)).toFixed(2);
@@ -87,6 +88,26 @@
 
   const runSelfCheck = () => systemSelfCheck();
 
+  const bootSelfTest = () => {
+    const failures = [];
+    const tests = [
+      { base: 10, year: 0, expected: 10 },
+      { base: 10, year: 1, expected: 10 },
+      { base: 10, year: 2, expected: 11 },
+      { base: 10, year: 5, expected: 14 }
+    ];
+    tests.forEach(t => {
+      const got = stepForYear(t.base, t.year);
+      if (got !== t.expected) failures.push(`stepForYear(${t.base},${t.year})=${got}`);
+    });
+    const sample = computeCellValue(1000, 1, { increases: { 1: { rate: 0.01, flat: 100 } } });
+    if (typeof sample !== "number" || Number.isNaN(sample)) failures.push("computeCellValue returned non-number");
+    if (failures.length) {
+      return { ok: false, status: "FAIL", reason: failures.join("; ") };
+    }
+    return { ok: true, status: "PASS" };
+  };
+
   const api = {
     stepForYear,
     computeCellValue,
@@ -94,7 +115,8 @@
     explainSalaryAt,
     computeHealthInsuranceNet,
     runSelfCheck,
-    systemSelfCheck
+    systemSelfCheck,
+    bootSelfTest
   };
 
   if (typeof module !== "undefined" && module.exports) {
