@@ -24,7 +24,7 @@
     const table = globalThis.baseTable;
     if (!Array.isArray(table)) return 0;
     const effectiveStep = stepForYear(step, year);
-    const row = table.find(r => r.step === effectiveStep);
+    const row = table.find(r => r.step === Math.max(1, Math.min(effectiveStep, 22)));
     const base = row ? row[col] : null;
     if (base == null) return 0;
     return +(computeCellValue(base, year, paramsOverride) * (fte || 1)).toFixed(2);
@@ -54,7 +54,7 @@
     if (stepCapApplied) {
       stepReason += " Capped at step 22.";
     }
-    const finalSalary = computeSalaryAt(effectiveStep, col, fte || 1, year, paramsOverride);
+    const finalSalary = computeSalaryAt(startStep, col, fte || 1, year, paramsOverride);
     return {
       startStep,
       column: col,
@@ -121,7 +121,9 @@
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
-  } else {
-    globalThis.SalaryMath = api;
+  }
+  globalThis.SalaryMath = api;
+  if (typeof window !== "undefined") {
+    window.SalaryMath = api;
   }
 })();

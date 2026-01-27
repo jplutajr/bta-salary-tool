@@ -1,0 +1,8 @@
+Playwright run timed out after 30 seconds while attempting to launch browsers and exercise the page.
+
+Attempts:
+- Tried Chromium first, then Firefox fallback. The Playwright runner timed out before any page console logs could be captured.
+
+Result:
+- No browser console output captured due to Playwright timeout.
+- Follow-up debugging required in a local environment with a functioning browser runtime.
