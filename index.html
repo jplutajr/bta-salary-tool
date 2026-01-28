@@ -1124,8 +1124,566 @@ document.addEventListener("DOMContentLoaded", ()=>{
     setRosterStatus(`Roster init error: ${e.message || e}`);
   }
 });
+/* ===========================
+   RECOVERED CORE APP LOGIC
+   - generateSalaryTable()
+   - computeAffordability()
+   - staff lookup wiring
+   - roster exports wiring
+   - scenario save/load + compare render
+   =========================== */
 
-/* ... (rest of your original JS continues exactly as you provided; unchanged) ... */
+const SCENARIO_KEY_A = "bta_scenario_A_v1";
+const SCENARIO_KEY_B = "bta_scenario_B_v1";
+
+function clamp(n, lo, hi){
+  n = +n;
+  if (!isFinite(n)) return lo;
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function parseYearInput(str){
+  const s = String(str || "").trim();
+  if (!s) return [1];
+  // allow "1-3" or "1,2,3" or "2"
+  if (s.includes("-")) {
+    const [a,b] = s.split("-").map(x=>parseInt(x.trim(),10));
+    const start = clamp(a||0, 0, 5);
+    const end   = clamp(b||start, 0, 5);
+    const out = [];
+    for (let y=Math.min(start,end); y<=Math.max(start,end); y++) out.push(y);
+    return out;
+  }
+  return s.split(/[, ]+/).map(x=>parseInt(x,10)).filter(n=>isFinite(n) && n>=0 && n<=5);
+}
+
+function stepForYear(baseStep, year){
+  // Your rule: Year 0 & Year 1 keep same step; Year 2+ advances +1 each year up to 22
+  const s0 = clamp(baseStep, 1, 22);
+  if (year <= 1) return s0;
+  const advanced = s0 + (year - 1); // year2 => +1, year3 => +2...
+  return clamp(advanced, 1, 22);
+}
+
+function getUIParams(){
+  const pct = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 1);
+  const flat = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), -1e9, 1e9);
+
+  const yPct  = [null, pct("year1"), pct("year2"), pct("year3"), pct("year4"), pct("year5")];
+  const yFlat = [null, flat("flat1"), flat("flat2"), flat("flat3"), flat("flat4"), flat("flat5")];
+
+  const contrib = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 100) / 100;
+  const hiPct = [null,
+    contrib("contributionY1"),
+    contrib("contributionY2"),
+    contrib("contributionY3"),
+    contrib("contributionY4"),
+    contrib("contributionY5")
+  ];
+
+  return { yPct, yFlat, hiPct };
+}
+
+function serializeScenarioFromUI(){
+  const { yPct, yFlat, hiPct } = getUIParams();
+  return {
+    yPct, yFlat, hiPct,
+    gfBase: +document.getElementById("gfBase")?.value || 0,
+    gfGrowthPct: +document.getElementById("gfGrowthPct")?.value || 0,
+    adderPct: +document.getElementById("adderPct")?.value || 0,
+    otherPct: +document.getElementById("otherPct")?.value || 0,
+    budget: +document.getElementById("budget")?.value || 0,
+    maxBudgetPct: +document.getElementById("maxBudgetPct")?.value || 0,
+    maxBudgetFlat: +document.getElementById("maxBudgetFlat")?.value || 0,
+    stateAidPct: +document.getElementById("stateAidPct")?.value || 0,
+    addlRevenue: +document.getElementById("addlRevenue")?.value || 0,
+    otherSavings: +document.getElementById("otherSavings")?.value || 0
+  };
+}
+
+function applyScenarioToUI(s){
+  if (!s) return;
+  const setVal = (id, v)=>{ const el=document.getElementById(id); if(el) el.value = v; };
+
+  // pct dropdown values are decimals like 0.0275
+  setVal("year1", String(s.yPct?.[1] ?? 0.0275));
+  setVal("year2", String(s.yPct?.[2] ?? 0.0275));
+  setVal("year3", String(s.yPct?.[3] ?? 0.0275));
+  setVal("year4", String(s.yPct?.[4] ?? 0.0275));
+  setVal("year5", String(s.yPct?.[5] ?? 0.0275));
+
+  setVal("flat1", String(s.yFlat?.[1] ?? 1200));
+  setVal("flat2", String(s.yFlat?.[2] ?? 1200));
+  setVal("flat3", String(s.yFlat?.[3] ?? 1200));
+  setVal("flat4", String(s.yFlat?.[4] ?? 1200));
+  setVal("flat5", String(s.yFlat?.[5] ?? 1200));
+
+  // hi % dropdowns store whole numbers like 19, 20...
+  setVal("contributionY1", String((s.hiPct?.[1] ?? 0.19) * 100));
+  setVal("contributionY2", String((s.hiPct?.[2] ?? 0.19) * 100));
+  setVal("contributionY3", String((s.hiPct?.[3] ?? 0.19) * 100));
+  setVal("contributionY4", String((s.hiPct?.[4] ?? 0.19) * 100));
+  setVal("contributionY5", String((s.hiPct?.[5] ?? 0.19) * 100));
+
+  setVal("gfBase", String(s.gfBase ?? ""));
+  setVal("gfGrowthPct", String(s.gfGrowthPct ?? ""));
+  setVal("adderPct", String(s.adderPct ?? ""));
+  setVal("otherPct", String(s.otherPct ?? ""));
+  setVal("budget", String(s.budget ?? ""));
+  setVal("maxBudgetPct", String(s.maxBudgetPct ?? ""));
+  setVal("maxBudgetFlat", String(s.maxBudgetFlat ?? ""));
+  setVal("stateAidPct", String(s.stateAidPct ?? ""));
+  setVal("addlRevenue", String(s.addlRevenue ?? ""));
+  setVal("otherSavings", String(s.otherSavings ?? ""));
+}
+
+function saveScenario(which){
+  const payload = serializeScenarioFromUI();
+  try{
+    localStorage.setItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B, JSON.stringify(payload));
+    updateScenarioStatus();
+  }catch(e){}
+}
+
+function loadScenario(which){
+  try{
+    const raw = localStorage.getItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){ return null; }
+}
+
+function updateScenarioStatus(){
+  const el = document.getElementById("scenarioStatus");
+  if (!el) return;
+  const hasA = !!loadScenario("A");
+  const hasB = !!loadScenario("B");
+  el.textContent = `A: ${hasA ? "saved" : "—"} | B: ${hasB ? "saved" : "—"}`;
+}
+
+function getBaseSalary(step, col){
+  const row = baseTable.find(r => r.step === step);
+  if (!row) return null;
+  const v = row[col];
+  return (v==null) ? null : +v;
+}
+
+function buildSchedules(params){
+  // schedules[year][step][col] = salary
+  const schedules = [];
+  schedules[0] = {};
+  for (let s=1; s<=22; s++){
+    schedules[0][s] = {};
+    for (const c of COLS){
+      const v = getBaseSalary(s,c);
+      schedules[0][s][c] = (v==null) ? null : v;
+    }
+  }
+
+  for (let y=1; y<=5; y++){
+    schedules[y] = {};
+    for (let s=1; s<=22; s++){
+      schedules[y][s] = {};
+      for (const c of COLS){
+        const prev = schedules[y-1][s][c];
+        schedules[y][s][c] = (prev==null) ? null : ((prev + (params.yFlat[y]||0)) * (1 + (params.yPct[y]||0)));
+      }
+    }
+  }
+  return schedules;
+}
+
+function salaryAt(schedules, year, step, col){
+  year = clamp(year, 0, 5);
+  step = clamp(step, 1, 22);
+  col = normScale(col);
+  const v = schedules?.[year]?.[step]?.[col];
+  return (v==null) ? null : +v;
+}
+
+function rosterPayrollForYear(schedules, year){
+  let total = 0;
+  for (const r of (roster || [])){
+    const stepY = stepForYear(r.Step, year);
+    const v = salaryAt(schedules, year, stepY, r.Column);
+    if (v==null) continue;
+    total += v * (r.FTE || 1);
+  }
+  return total;
+}
+
+function rosterBaselineForYear(schedules0, year){
+  // Baseline = no contractual raises (schedule 0), but apply the step progression rule to people.
+  let total = 0;
+  for (const r of (roster || [])){
+    const stepY = stepForYear(r.Step, year);
+    const v = salaryAt([schedules0], 0, stepY, r.Column);
+    if (v==null) continue;
+    total += v * (r.FTE || 1);
+  }
+  return total;
+}
+
+function renderSalaryTable(schedules, years, title){
+  const wrap = document.createElement("div");
+  wrap.className = "card";
+  wrap.style.marginBottom = "14px";
+
+  const h = document.createElement("h3");
+  h.textContent = title;
+  wrap.appendChild(h);
+
+  years.forEach((y)=>{
+    const sub = document.createElement("div");
+    sub.style.margin = "10px 0 6px";
+    sub.innerHTML = `<strong>Year ${y}</strong>`;
+    wrap.appendChild(sub);
+
+    const tc = document.createElement("div");
+    tc.className = "table-container";
+
+    const t = document.createElement("table");
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    trh.innerHTML = `<th>Step</th>` + COLS.map(c=>`<th data-col="${c}">${c}</th>`).join("");
+    thead.appendChild(trh);
+    t.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (let s=1; s<=22; s++){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${s}</td>` + COLS.map(c=>{
+        const v = schedules?.[y]?.[s]?.[c];
+        return `<td data-col="${c}"><span class="main">${v==null ? "—" : money(v)}</span></td>`;
+      }).join("");
+      tbody.appendChild(tr);
+    }
+    t.appendChild(tbody);
+
+    tc.appendChild(t);
+    wrap.appendChild(tc);
+  });
+
+  return wrap;
+}
+
+function generateSalaryTable({mode="inline"} = {}){
+  const years = parseYearInput(document.getElementById("tableYear")?.value);
+  if (!years.length) { setStatus("Invalid year range."); return; }
+
+  const renderArea = document.getElementById("renderArea");
+  if (!renderArea) return;
+  renderArea.innerHTML = "";
+
+  const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
+  const A = loadScenario("A");
+  const B = loadScenario("B");
+
+  const uiParams = getUIParams();
+  const schedulesUI = buildSchedules(uiParams);
+
+  const blocks = [];
+
+  if (compareOn && A && B){
+    const sA = buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct});
+    const sB = buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct});
+
+    blocks.push(renderSalaryTable(sA, years, "Salary Table — Scenario A"));
+    blocks.push(renderSalaryTable(sB, years, "Salary Table — Scenario B"));
+  } else {
+    blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI"));
+  }
+
+  blocks.forEach(b=>renderArea.appendChild(b));
+
+  // also recompute affordability dashboard whenever you generate
+  computeAffordability();
+
+  if (mode === "newWindow"){
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const html = `
+      <!doctype html><html><head><meta charset="utf-8"/>
+      <title>BTA Salary Table</title>
+      <style>
+        body{font-family:Arial,system-ui;margin:16px;color:#111}
+        .table-container{overflow-x:auto;border:1px solid #ddd;border-radius:10px;margin:10px 0;background:#fff}
+        table{border-collapse:collapse;width:100%;min-width:900px}
+        th,td{border:1px solid #ddd;padding:6px 8px;white-space:nowrap;font-size:12px}
+        thead th{background:#2d3748;color:#fff;position:sticky;top:0}
+        h3{margin:10px 0 4px}
+        .btns{display:flex;gap:8px;margin:10px 0}
+        button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
+      </style>
+      </head><body>
+        <div class="btns">
+          <button onclick="window.print()">Print</button>
+          <button onclick="window.close()">Close</button>
+        </div>
+        ${renderArea.innerHTML}
+      </body></html>
+    `;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+}
+
+function computeAffordability(){
+  const params = getUIParams();
+  const schedules = buildSchedules(params);
+
+  const adderPct = clamp(parseFloat(document.getElementById("adderPct")?.value || "0"), 0, 100) / 100;
+  const addlRevenue = +document.getElementById("addlRevenue")?.value || 0;
+  const otherSavings = +document.getElementById("otherSavings")?.value || 0;
+
+  const budget = +document.getElementById("budget")?.value || 0;
+  const maxBudgetFlat = +document.getElementById("maxBudgetFlat")?.value || 0;
+  const maxBudgetPct = clamp(+document.getElementById("maxBudgetPct")?.value || 0, 0, 100) / 100;
+  const stateAidPct = clamp(+document.getElementById("stateAidPct")?.value || 0, 0, 100) / 100;
+
+  const allowableNewSpend = Math.max(maxBudgetFlat, budget * maxBudgetPct) + (budget * stateAidPct);
+  const offsets = addlRevenue + otherSavings;
+
+  // Build baseline schedule0 separately for baseline-with-step-progression
+  const schedules0 = schedules[0];
+
+  const tbody = document.getElementById("affordabilityTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const years = [1,2,3,4,5];
+
+  let anyFail = false;
+  let totalNet = 0;
+
+  years.forEach((y)=>{
+    const contractPayroll = rosterPayrollForYear(schedules, y);
+    const baselinePayroll = rosterBaselineForYear(schedules0, y);
+
+    const incremental = (contractPayroll - baselinePayroll);
+    const incrementalWithAdders = incremental * (1 + adderPct);
+    const netImpact = incrementalWithAdders - offsets;
+
+    totalNet += netImpact;
+    const pass = netImpact <= allowableNewSpend;
+    if (!pass) anyFail = true;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${y}</td>
+      <td>${money(contractPayroll)}</td>
+      <td>${money(baselinePayroll)}</td>
+      <td>${money(incrementalWithAdders)}</td>
+      <td>${money(offsets)}</td>
+      <td>${money(netImpact)}</td>
+      <td>${money(allowableNewSpend)}</td>
+      <td class="${pass ? "ok" : "bad"}">${pass ? "PASS" : "FAIL"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const summary = document.getElementById("affordabilitySummary");
+  const err = document.getElementById("affordabilityError");
+  if (summary) summary.style.display = "block";
+  if (err) err.style.display = anyFail ? "block" : "none";
+
+  if (summary){
+    summary.className = "banner " + (anyFail ? "fail" : "pass");
+    summary.innerHTML = `
+      <div><strong>${anyFail ? "Affordability: FAIL in at least one year" : "Affordability: PASS (all years)"}</strong></div>
+      <div class="soft">Allowable new spend/yr = ${money(allowableNewSpend)} (cap + state aid). Offsets/yr = ${money(offsets)}. Adders = ${(adderPct*100).toFixed(1)}%.</div>
+    `;
+  }
+  if (err){
+    err.innerHTML = `<strong>One or more years exceed allowable new spend.</strong> Reduce raises/flat, increase offsets, or revise cap assumptions.`;
+  }
+
+  // also update the “contract payroll” and “incremental” summary boxes
+  const setText = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent = v; };
+  let totalContract = 0;
+  let totalInc = 0;
+  years.forEach((y)=>{
+    const c = rosterPayrollForYear(schedules, y);
+    const b = rosterBaselineForYear(schedules0, y);
+    const inc = (c-b) * (1+adderPct);
+    totalContract += c;
+    totalInc += inc;
+    setText(`contractPayrollY${y}`, money(c));
+    setText(`incrementalY${y}`, money(inc));
+  });
+  setText("contractPayrollTotal", money(totalContract));
+  setText("incrementalTotal", money(totalInc));
+}
+
+function wireCoreButtons(){
+  safeAddListener("generateTableButton", "click", ()=>generateSalaryTable({mode:"inline"}));
+  safeAddListener("generateTableNewWindow", "click", ()=>generateSalaryTable({mode:"newWindow"}));
+
+  safeAddListener("saveScenarioA", "click", ()=>saveScenario("A"));
+  safeAddListener("saveScenarioB", "click", ()=>saveScenario("B"));
+  safeAddListener("loadScenarioA", "click", ()=>{ const s=loadScenario("A"); if(!s) return; applyScenarioToUI(s); computeAffordability(); });
+  safeAddListener("loadScenarioB", "click", ()=>{ const s=loadScenario("B"); if(!s) return; applyScenarioToUI(s); computeAffordability(); });
+
+  // staff lookup
+  safeAddListener("sl_btn", "click", ()=>{
+    const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
+    const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
+    const col  = normScale(document.getElementById("sl_scale")?.value || "M50");
+    const scenario = document.getElementById("sl_scenario")?.value || "ui";
+
+    const paramsUI = getUIParams();
+    const schedulesUI = buildSchedules(paramsUI);
+
+    const doOne = (label, schedules)=>{
+      const s = salaryAt(schedules, year, step, col);
+      return `${label}: ${s==null ? "—" : money(s)}`;
+    };
+
+    let out = "";
+    if (scenario === "A" || scenario === "both"){
+      const A = loadScenario("A");
+      if (A){
+        out += doOne("Scenario A", buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct})) + "\n";
+      } else out += "Scenario A: (not saved)\n";
+    }
+    if (scenario === "B" || scenario === "both"){
+      const B = loadScenario("B");
+      if (B){
+        out += doOne("Scenario B", buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct})) + "\n";
+      } else out += "Scenario B: (not saved)\n";
+    }
+    if (scenario === "ui"){
+      out = doOne("Current UI", schedulesUI);
+    }
+
+    const el = document.getElementById("sl_out");
+    if (el) el.textContent = out.trim();
+  });
+
+  // exports
+  safeAddListener("exportCsvBtn", "click", ()=>{
+    const year = clamp(+document.getElementById("exportYear")?.value || 1, 0, 5);
+    const scenario = document.getElementById("exportScenario")?.value || "ui";
+
+    const uiSchedules = buildSchedules(getUIParams());
+    const A = loadScenario("A");
+    const B = loadScenario("B");
+    const sA = A ? buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct}) : null;
+    const sB = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.yFlat, hiPct:B.hiPct}) : null; // (typo safe below)
+    const sB2 = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct}) : null;
+
+    const header = ["Name","Step","Column","FTE"];
+    let rows = [];
+
+    if (scenario === "both"){
+      header.push("Salary_A","Salary_B");
+      rows = (roster||[]).map(r=>{
+        const stepY = stepForYear(r.Step, year);
+        const a = sA ? salaryAt(sA, year, stepY, r.Column) : null;
+        const b = sB2 ? salaryAt(sB2, year, stepY, r.Column) : null;
+        return [
+          r.Name, r.Step, r.Column, r.FTE,
+          a==null ? "" : (a*(r.FTE||1)).toFixed(2),
+          b==null ? "" : (b*(r.FTE||1)).toFixed(2)
+        ];
+      });
+    } else {
+      header.push("Salary");
+      const schedules =
+        scenario==="A" ? (A ? sA : null) :
+        scenario==="B" ? (B ? sB2 : null) :
+        uiSchedules;
+
+      rows = (roster||[]).map(r=>{
+        const stepY = stepForYear(r.Step, year);
+        const v = schedules ? salaryAt(schedules, year, stepY, r.Column) : null;
+        return [r.Name, r.Step, r.Column, r.FTE, v==null ? "" : (v*(r.FTE||1)).toFixed(2)];
+      });
+    }
+
+    const csv = [header.join(",")].concat(rows.map(r=>r.map(x=>{
+      const s = String(x ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    }).join(","))).join("\n");
+
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `bta_roster_year${year}_${scenario}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  safeAddListener("exportXlsxBtn", "click", ()=>{
+    if (typeof XLSX === "undefined"){
+      alert("XLSX library not loaded.");
+      return;
+    }
+    const years = parseYearInput(document.getElementById("tableYear")?.value);
+    const scenario = document.getElementById("exportScenario")?.value || "ui";
+
+    const uiSchedules = buildSchedules(getUIParams());
+    const A = loadScenario("A");
+    const B = loadScenario("B");
+    const sA = A ? buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct}) : null;
+    const sB2 = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct}) : null;
+
+    const wb = XLSX.utils.book_new();
+
+    years.forEach((year)=>{
+      const header = ["Name","BaseStep","YearStep","Column","FTE"];
+      let data = [];
+
+      if (scenario === "both"){
+        header.push("Salary_A","Salary_B");
+        data = (roster||[]).map(r=>{
+          const stepY = stepForYear(r.Step, year);
+          const a = sA ? salaryAt(sA, year, stepY, r.Column) : null;
+          const b = sB2 ? salaryAt(sB2, year, stepY, r.Column) : null;
+          return [
+            r.Name, r.Step, stepY, r.Column, r.FTE,
+            a==null ? "" : (a*(r.FTE||1)),
+            b==null ? "" : (b*(r.FTE||1))
+          ];
+        });
+      } else {
+        header.push("Salary");
+        const schedules =
+          scenario==="A" ? (sA || null) :
+          scenario==="B" ? (sB2 || null) :
+          uiSchedules;
+
+        data = (roster||[]).map(r=>{
+          const stepY = stepForYear(r.Step, year);
+          const v = schedules ? salaryAt(schedules, year, stepY, r.Column) : null;
+          return [r.Name, r.Step, stepY, r.Column, r.FTE, v==null ? "" : (v*(r.FTE||1))];
+        });
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+      XLSX.utils.book_append_sheet(wb, ws, `Year${year}`);
+    });
+
+    XLSX.writeFile(wb, `bta_roster_export_${scenario}.xlsx`);
+  });
+
+  // recompute affordability when key fields change
+  const watchIds = ["year1","year2","year3","year4","year5","flat1","flat2","flat3","flat4","flat5","adderPct","budget","maxBudgetPct","maxBudgetFlat","stateAidPct","addlRevenue","otherSavings"];
+  watchIds.forEach(id=>{
+    safeAddListener(id, "change", ()=>computeAffordability());
+    safeAddListener(id, "input", ()=>computeAffordability());
+  });
+}
+
+document.addEventListener("DOMContentLoaded", ()=>{
+  updateScenarioStatus();
+  wireCoreButtons();
+  // if roster already loaded, affordability can compute immediately
+  try{ computeAffordability(); }catch(e){}
+});
+
 </script>
 
 </body>
