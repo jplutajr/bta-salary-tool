@@ -17,6 +17,10 @@ Changelog:
     --band:#2d3748; --bandText:#fff; --panel:#f8fafc; --line:#cbd5e0;
   }
   body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:18px;background:#f5f5f5;color:var(--ink)}
+  html, body { max-width:100%; overflow-x:hidden; }
+*, *::before, *::after { box-sizing:border-box; }
+fieldset, .form-column, .row { min-width:0; max-width:100%; }
+.row > * { min-width:0; }
   .container{max-width:1200px;margin:auto;background:#fff;padding:18px 18px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:10px}
   h2{margin:0 0 8px}
 .form-container{
@@ -56,10 +60,10 @@ Changelog:
 }
 
   /* Make the table as wide as it needs, then scroll horizontally */
-  .table-container table{
+.table-container table{
   border-collapse: collapse;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 900px;   /* forces horizontal scroll inside container */
   table-layout: auto;
 }
 
@@ -115,6 +119,9 @@ Changelog:
   /* System status */
   .sys-status{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px 12px;margin:8px 0}
   .sys-left{display:flex;flex-direction:column;gap:2px}
+  .sys-left{min-width:0;}
+.sys-status *{min-width:0;}
+.mono{overflow-wrap:anywhere; word-break:break-word;}
   .sys-title{font-weight:700}
   .sys-small{font-size:.85rem;color:var(--muted)}
   .sys-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;background:#e2e8f0;color:#111827}
@@ -931,9 +938,8 @@ const baseTable = [
   {step:22,TA:null,BA:116315, BA10:119183, BA20:122050, BA30:124919, BA40:127790, BA50:130659, BA60:133527, M:130659, M10:133527, M20:136395, M30:139264, M40:142133, M50:145000}
 ];
 window.baseTable = baseTable;
-
 /* ------------------------------ State & helpers ------------------------------ */
-let roster=[];
+let roster = [];
 let lastSalaryPayload = null;
 let lastRecalcAt = null;
 let affordabilityComputed = false;
@@ -941,6 +947,183 @@ let affordabilityComputed = false;
 const rosterStorageRawKey = "bta_roster_raw_csv";
 const rosterStorageParsedKey = "bta_roster_parsed";
 const rosterLegacyKey = "bta_roster_json";
+  // ============================
+// ROSTER: default load + upload
+// ============================
+function setRosterStatus(msg){
+  const el = document.getElementById("rosterStatus");
+  if (el) el.textContent = msg || "";
+}
+
+function getEmbeddedRosterCSV(){
+  const el = document.getElementById("embeddedRoster");
+  return el ? (el.value || "").trim() : "";
+}
+
+function getRosterTextCSV(){
+  const el = document.getElementById("rosterText");
+  return el ? (el.value || "").trim() : "";
+}
+
+function saveRosterToStorage(rawCsv){
+  try{
+    localStorage.setItem(rosterStorageRawKey, rawCsv || "");
+  }catch(e){}
+}
+
+function loadRosterFromStorage(){
+  try{
+    return (localStorage.getItem(rosterStorageRawKey) || "").trim();
+  }catch(e){
+    return "";
+  }
+}
+
+function clearRosterStorage(){
+  try{
+    localStorage.removeItem(rosterStorageRawKey);
+    localStorage.removeItem(rosterStorageParsedKey);
+    localStorage.removeItem(rosterLegacyKey);
+  }catch(e){}
+}
+
+function applyRosterFromCSV(rawCsv, sourceLabel){
+  const parsed = parseCSV(rawCsv);
+  roster = parsed || [];
+  saveRosterToStorage(rawCsv);
+  setRosterStatus(`${sourceLabel}: ${roster.length} rows loaded`);
+  // If you have a recalc function, call it here.
+  // recalcAll();
+}
+
+function ensureDefaultRosterLoaded(){
+  const saved = loadRosterFromStorage();
+  if (saved) return applyRosterFromCSV(saved, "Saved roster");
+
+  const pasted = getRosterTextCSV();
+  if (pasted) return applyRosterFromCSV(pasted, "Pasted roster");
+
+  const embedded = getEmbeddedRosterCSV();
+  if (embedded) return applyRosterFromCSV(embedded, "Default roster");
+
+  setRosterStatus("No roster found (embeddedRoster is empty).");
+}
+
+function readFileAsText(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("File read failed"));
+    r.onload = () => resolve(String(r.result || ""));
+    r.readAsText(file);
+  });
+}
+function readFileAsArrayBuffer(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("File read failed"));
+    r.onload = () => resolve(r.result);
+    r.readAsArrayBuffer(file);
+  });
+}
+async function loadRosterFromFile(file){
+  const name = (file?.name || "").toLowerCase();
+  if (!file) return;
+
+  // CSV / TXT
+  if (name.endsWith(".csv") || name.endsWith(".txt")) {
+    const text = await readFileAsText(file);
+    applyRosterFromCSV(text, "File CSV");
+    return;
+  }
+  // XLSX / XLS
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    if (typeof XLSX === "undefined") {
+      throw new Error("XLSX library is not loaded (CDN missing/blocked).");
+    }
+    const buf = await readFileAsArrayBuffer(file);
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    applyRosterFromCSV(csv, "File XLSX");
+    return;
+  }
+
+  throw new Error("Unsupported file type. Use .csv or .xlsx");
+}
+
+function wireRosterUI(){
+  const loadBtn = document.getElementById("loadRosterBtn");
+  const useSampleBtn = document.getElementById("useSampleRosterBtn");
+  const clearBtn = document.getElementById("clearRosterBtn");
+  const clearSavedBtn = document.getElementById("clearSavedRosterBtn");
+  const fileInput = document.getElementById("rosterFile");
+  const rosterTextEl = document.getElementById("rosterText");
+
+  if (loadBtn) {
+    loadBtn.addEventListener("click", ()=>{
+      const pasted = getRosterTextCSV();
+      if (!pasted) {
+        setRosterStatus("Paste CSV into the box OR choose a file.");
+        return;
+      }
+      applyRosterFromCSV(pasted, "Pasted roster");
+    });
+  }
+
+  if (useSampleBtn) {
+    useSampleBtn.addEventListener("click", ()=>{
+      const embedded = getEmbeddedRosterCSV();
+      if (!embedded) {
+        setRosterStatus("embeddedRoster is empty.");
+        return;
+      }
+      if (rosterTextEl) rosterTextEl.value = "";
+      applyRosterFromCSV(embedded, "Default roster");
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", ()=>{
+      roster = [];
+      if (rosterTextEl) rosterTextEl.value = "";
+      saveRosterToStorage("");
+      setRosterStatus("Roster cleared (saved roster not deleted).");
+      // recalcAll();
+    });
+  }
+
+  if (clearSavedBtn) {
+    clearSavedBtn.addEventListener("click", ()=>{
+      clearRosterStorage();
+      setRosterStatus("Saved roster cleared.");
+      ensureDefaultRosterLoaded();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener("change", async ()=>{
+      try{
+        const f = fileInput.files && fileInput.files[0];
+        if (!f) return;
+        await loadRosterFromFile(f);
+      }catch(err){
+        setRosterStatus(`Upload error: ${err.message || err}`);
+      }finally{
+        fileInput.value = ""; // allow re-selecting same file
+      }
+    });
+  }
+}
+
+// Run roster boot once the page is ready
+document.addEventListener("DOMContentLoaded", ()=>{
+  try{
+    wireRosterUI();
+    ensureDefaultRosterLoaded();
+  }catch(e){
+    setRosterStatus(`Roster init error: ${e.message || e}`);
+  }
+});
 
 /* ... (rest of your original JS continues exactly as you provided; unchanged) ... */
 </script>
