@@ -20,7 +20,7 @@ Changelog:
   .container{max-width:1200px;margin:auto;background:#fff;padding:18px 18px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:10px}
   h2{margin:0 0 8px}
   .form-container{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:16px}
-  .form-column{flex:1 1 46%;min-width:320px}
+  .form-column{flex:1 1 46%;min-width:320px; min-width:0;}
   fieldset{border:1px solid #e2e8f0;padding:10px 12px;border-radius:8px;background:#fafafa}
   legend{font-weight:700;padding:0 6px}
   .form-group{margin-bottom:8px}
@@ -37,21 +37,26 @@ Changelog:
   /* =========================
      TABLE FIX (NO SQUISH / NO SPILL)
      ========================= */
-  .table-container{
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-    margin:6px 0 16px;
-    border:1px solid #e2e8f0;
-    border-radius:10px;
-    background:#fff;
-  }
+.table-container{
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  margin: 6px 0 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  box-sizing: border-box;
+}
 
   /* Make the table as wide as it needs, then scroll horizontally */
   .table-container table{
-    border-collapse:collapse;
-    width:max-content;     /* KEY: stop squeezing */
-    table-layout:auto;     /* KEY: stop forced equal-width columns */
-  }
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
 
   .table-container thead th{
     position:sticky;
