@@ -1683,6 +1683,50 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // if roster already loaded, affordability can compute immediately
   try{ computeAffordability(); }catch(e){}
 });
+/* =========================
+   CRASH REPORTER + BRIDGE
+   Paste at the very bottom of the script
+   ========================= */
+
+(function () {
+  // 1) Show JS errors in the page (statusMsg + rosterStatus) so you aren’t blind
+  window.addEventListener("error", (ev) => {
+    const msg = ev?.error?.stack || ev?.message || String(ev);
+    try { setStatus("JS ERROR: " + msg); } catch(_) {}
+    try { setRosterStatus("JS ERROR: " + msg); } catch(_) {}
+  });
+
+  window.addEventListener("unhandledrejection", (ev) => {
+    const msg = ev?.reason?.stack || ev?.reason?.message || String(ev?.reason);
+    try { setStatus("PROMISE ERROR: " + msg); } catch(_) {}
+    try { setRosterStatus("PROMISE ERROR: " + msg); } catch(_) {}
+  });
+
+  // 2) If your new code expects generateSalaryTable, but this file has generateTable,
+  // make them the same thing.
+  if (typeof window.generateSalaryTable !== "function" && typeof window.generateTable === "function") {
+    window.generateSalaryTable = window.generateTable;
+  }
+
+  // 3) Force the button to call whichever one exists (prevents “nothing happens”)
+  const btn = document.getElementById("generateTableButton");
+  if (btn) {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      try {
+        const fn = window.generateSalaryTable || window.generateTable;
+        if (typeof fn !== "function") {
+          setStatus("No generator found: generateSalaryTable() / generateTable() missing.");
+          return;
+        }
+        fn();
+      } catch (err) {
+        console.error(err);
+        setStatus("Generate crashed: " + (err?.message || err));
+      }
+    }, { capture: true });
+  }
+})();
 
 </script>
 
