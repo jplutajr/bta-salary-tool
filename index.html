@@ -721,18 +721,32 @@ Changelog:
 <script src="salary-math.js?v=2026-01-20-1"></script>
 <script>
 /* ======== ENTIRE ORIGINAL SCRIPT UNCHANGED BELOW THIS LINE ======== */
-const {
-  stepForYear,
-  computeCellValue,
-  computeSalaryAt,
-  explainSalaryAt,
-  computeHealthInsuranceNet,
-  runSelfCheck,
-  systemSelfCheck
-} = window.SalaryMath || {};
+const SalaryMath = () => window.SalaryMath || {};
 const BUILD_VERSION = "v0.4.0";
 const BUILD_TIME = new Date().toLocaleString();
 window.__APP_BOOTED__ = false;
+  // Mark app as booted once SalaryMath is actually ready
+(function waitForSalaryMath(){
+  const sm = SalaryMath();
+  const ok =
+    typeof sm.stepForYear === "function" &&
+    typeof sm.computeCellValue === "function" &&
+    typeof sm.computeSalaryAt === "function";
+
+  if (ok) {
+    window.__APP_BOOTED__ = true;
+
+    const systemStatusText = document.getElementById("systemStatusText");
+    if (systemStatusText) {
+      systemStatusText.textContent = "OK";
+      systemStatusText.classList.add("ok");
+      systemStatusText.classList.remove("error");
+    }
+  } else {
+    // retry until salary-math.js finishes loading
+    setTimeout(waitForSalaryMath, 50);
+  }
+})();
 
 const safeAddListener = (id, event, handler) => {
   const el = document.getElementById(id);
@@ -773,12 +787,11 @@ window.addEventListener("unhandledrejection", (e)=>{
   }catch(_){}
 });
 
-
   // Boot watchdog (prevents false "failed to load" messages)
 let __BOOT_WATCHDOG__ = setTimeout(() => {
   if (window.__APP_BOOTED__) return;
 
-  const sm = window.SalaryMath || {};
+  const sm = SalaryMath();
   const hasCoreFns =
     typeof sm.stepForYear === "function" &&
     typeof sm.computeCellValue === "function" &&
