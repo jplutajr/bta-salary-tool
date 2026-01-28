@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!--
+Changelog:
+- Restored roster persistence with autosave + clear-saved action and added diagnostics.
+- Added inline vs new-window salary table generation with print/close controls.
+- Rebuilt affordability model, summaries, and incremental cost dashboard.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -25,7 +31,7 @@
   button:hover{background:#0f172a}
   .roster-card{margin-top:12px;padding:12px;border:1px solid #e2e8f0;background:#fcfcfc;border-radius:8px}
   .roster-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .lookup-card{margin-top:14px;padding:12px;border:1px solid #e2e8f0;background:#fafafa;border-radius:8px}
+  .lookup-card{margin-top:14px;padding:12px;border:1px solid #e2e8f0;background:#fafafa}
   #renderArea{margin-top:16px}
 
   /* =========================
@@ -273,39 +279,19 @@
       <fieldset>
         <legend>Health Insurance Contribution (by Contract Year)</legend>
         <div class="form-group"><label>2025–26</label>
-          <select id="contributionY1">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY1"></select>
         </div>
         <div class="form-group"><label>2026–27</label>
-          <select id="contributionY2">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY2"></select>
         </div>
         <div class="form-group"><label>2027–28</label>
-          <select id="contributionY3">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY3"></select>
         </div>
         <div class="form-group"><label>2028–29</label>
-          <select id="contributionY4">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY4"></select>
         </div>
         <div class="form-group"><label>2029–30</label>
-          <select id="contributionY5">
-            <option value="0.10">10%</option><option value="0.12">12%</option>
-            <option value="0.15">15%</option><option value="0.18">18%</option>
-            <option value="0.19" selected>19%</option><option value="0.20">20%</option><option value="0.25">25%</option>
-          </select>
+          <select id="contributionY5"></select>
         </div>
         <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
       </fieldset>
@@ -364,6 +350,71 @@
         <div class="row">
           <button type="button" id="generateTableButton">Generate Salary Table</button>
           <button type="button" id="generateTableNewWindow">Generate (New Window)</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Contract Payroll (not incremental)</legend>
+        <div class="kvs">
+          <div><div class="soft">Total (Y1–Y5)</div><div id="contractPayrollTotal" class="mono">—</div></div>
+          <div><div class="soft">Year 1</div><div id="contractPayrollY1" class="mono">—</div></div>
+          <div><div class="soft">Year 2</div><div id="contractPayrollY2" class="mono">—</div></div>
+          <div><div class="soft">Year 3</div><div id="contractPayrollY3" class="mono">—</div></div>
+          <div><div class="soft">Year 4</div><div id="contractPayrollY4" class="mono">—</div></div>
+          <div><div class="soft">Year 5</div><div id="contractPayrollY5" class="mono">—</div></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Incremental Cost vs Baseline (Year 0)</legend>
+        <div class="kvs">
+          <div><div class="soft">Total Incremental (Y1–Y5)</div><div id="incrementalTotal" class="mono">—</div></div>
+          <div><div class="soft">Year 1</div><div id="incrementalY1" class="mono">—</div></div>
+          <div><div class="soft">Year 2</div><div id="incrementalY2" class="mono">—</div></div>
+          <div><div class="soft">Year 3</div><div id="incrementalY3" class="mono">—</div></div>
+          <div><div class="soft">Year 4</div><div id="incrementalY4" class="mono">—</div></div>
+          <div><div class="soft">Year 5</div><div id="incrementalY5" class="mono">—</div></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>District Affordability</legend>
+        <div class="form-group"><label>Baseline Budget (GF $)</label>
+          <input type="number" id="budget" value="0" step="1"/>
+        </div>
+        <div class="form-group"><label>Max Allowable Budget Increase (%)</label>
+          <input type="number" id="maxBudgetPct" value="0" step="0.01"/>
+        </div>
+        <div class="form-group"><label>Max Allowable Budget Increase ($)</label>
+          <input type="number" id="maxBudgetFlat" value="0" step="1"/>
+        </div>
+        <div class="form-group"><label>State Aid Growth (%/yr)</label>
+          <input type="number" id="stateAidPct" value="0" step="0.01"/>
+        </div>
+        <div class="form-group"><label>Additional Revenue ($/yr)</label>
+          <input type="number" id="addlRevenue" value="0" step="1"/>
+        </div>
+        <div class="form-group"><label>Other Savings/Costs ($/yr)</label>
+          <input type="number" id="otherSavings" value="0" step="1"/>
+        </div>
+        <div id="affordabilitySummary" class="banner" style="display:none"></div>
+        <div id="affordabilityError" class="banner fail" style="display:none"></div>
+        <div class="table-container">
+          <table id="affordabilityTable">
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>Contract Payroll</th>
+                <th>Baseline Payroll</th>
+                <th>Incremental Contract Cost</th>
+                <th>Revenue/Savings Offsets</th>
+                <th>Net Impact</th>
+                <th>Allowable New Spend</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="affordabilityTableBody"></tbody>
+          </table>
         </div>
       </fieldset>
     </div>
@@ -438,6 +489,7 @@
       <button type="button" id="loadRosterBtn">Load Roster</button>
       <button type="button" id="useSampleRosterBtn">Restore Default Roster</button>
       <button type="button" id="clearRosterBtn">Clear</button>
+      <button type="button" id="clearSavedRosterBtn">Clear Saved Roster</button>
       <span class="hint" id="rosterStatus"></span>
     </div>
   </div>
@@ -503,7 +555,6 @@
 
 <script src="salary-math.js?v=2026-01-20-1"></script>
 <script>
-const salaryMath = window.SalaryMath || {};
 const {
   stepForYear,
   computeCellValue,
@@ -512,13 +563,7 @@ const {
   computeHealthInsuranceNet,
   runSelfCheck,
   systemSelfCheck
-} = salaryMath;
-const REQUIRED_SALARY_EXPORTS = [
-  "stepForYear",
-  "computeCellValue",
-  "computeSalaryAt",
-  "computeHealthInsuranceNet"
-];
+} = window.SalaryMath || {};
 const BUILD_VERSION = "v0.4.0";
 const BUILD_TIME = new Date().toLocaleString();
 window.__APP_BOOTED__ = false;
@@ -585,6 +630,24 @@ setTimeout(() => {
   });
 })();
 
+function populateContributionSelect(selectId, min = 19, max = 25, step = 0.1, selected = 19){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const options = [];
+  for(let v=min; v<=max+1e-9; v+=step){
+    const fixed = v.toFixed(1);
+    const value = fixed.replace(/\.0$/,"");
+    const label = `${value}%`;
+    options.push({ value, label });
+  }
+  sel.innerHTML = options.map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
+  sel.value = String(selected);
+}
+
+["contributionY1","contributionY2","contributionY3","contributionY4","contributionY5"].forEach(id=>{
+  populateContributionSelect(id, 19, 25, 0.1, 19);
+});
+
 /* ------------------------------ Constants ------------------------------ */
 const IND_PREM_MONTH = 1479.53, FAM_PREM_MONTH = 3367.80;
 const IND_PREM_YEAR  = IND_PREM_MONTH*12, FAM_PREM_YEAR = FAM_PREM_MONTH*12;
@@ -618,58 +681,135 @@ function parseCSV(csvStr){
   const idxName   = findIdx(["name","employee name","employee","full name"]);
   const idxStep   = findIdx(["step","salary step","current step"]);
   const idxColumn = findIdx(["column","lane","degree","scale"]);
-  const idxFte    = findIdx(["fte","percent","pct","fte %"]);
-  const toNum = x => { const n=parseFloat(String(x||"").replace(/[^0-9.\-]/g,"")); return isNaN(n)?null:n; };
-  const data=[];
-  for(let i=1;i<rows.length;i++){
-    const r=rows[i];
-    if(!r || !r.length) continue;
-    const row = {
-      Name: r[idxName] ?? "",
-      Step: toNum(r[idxStep]) ?? "",
-      Column: (r[idxColumn] ?? "").toString().trim(),
-      FTE: toNum(r[idxFte]) ?? 1
-    };
-    if(row.Name || row.Step || row.Column) data.push(row);
+  const idxFTE    = findIdx(["fte","percent","pct","fte %","fte pct"]);
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    const c=rows[r];
+    const Name=(idxName>=0?c[idxName]:"").toString().trim(); if(!Name) continue;
+    const StepS=(idxStep>=0?c[idxStep]:"").toString().trim();
+    const m=StepS.match(/(\d{1,2})/);
+    let Step=m?Math.max(1,Math.min(parseInt(m[1],10),22)):null; if(!Step) continue;
+    const ColumnRaw=(idxColumn>=0?c[idxColumn]:"").toString().trim();
+    const Column=normScale(ColumnRaw);
+    let FTEs=(idxFTE>=0?c[idxFTE]:"1").toString().trim();
+    let FTE=1; if(/%$/.test(FTEs)) FTE=parseFloat(FTEs)/100; else if(!isNaN(parseFloat(FTEs))) FTE=parseFloat(FTEs);
+    if(!(FTE>0)) FTE=1;
+    out.push({Name,Step,Column,FTE});
   }
-  return data;
+  return out;
+}
+function normScale(s){
+  if(!s) return "";
+  s = String(s).toUpperCase().replace(/\s+/g,"").replace(/\./g,"");
+  const map = {
+    "M+50":"M50","M+40":"M40","M+30":"M30","M+20":"M20","M+10":"M10",
+    "MA+50":"M50","MA+40":"M40","MA+30":"M30","MA+20":"M20","MA+10":"M10",
+    "MA50":"M50","MA40":"M40","MA30":"M30","MA20":"M20","MA10":"M10","MA":"M","MS":"M","M":"M",
+    "BA+50":"BA50","BA+40":"BA40","BA+30":"BA30","BA+20":"BA20","BA+10":"BA10",
+    "B+50":"BA50","B+40":"BA40","B+30":"BA30","B+20":"BA20","B+10":"BA10",
+    "B50":"BA50","B40":"BA40","B30":"BA30","B20":"BA20","B10":"BA10",
+    "BACHELORS":"BA","BACHELOR":"BA","B.A.":"BA","M.A.":"M"
+  };
+  if(map[s]) return map[s];
+  let m;
+  if((m=s.match(/^M\D*(\d+)$/))) return "M"+m[1];
+  if((m=s.match(/^BA\D*(\d+)$/))) return "BA"+m[1];
+  return s;
 }
 
-/* ------------------------------ Salary schedule base table ------------------------------ */
+/* ------------------------------ Base table (1–22) ------------------------------ */
 const COLS = ["TA","BA","BA10","BA20","BA30","BA40","BA50","BA60","M","M10","M20","M30","M40","M50"];
 const baseTable = [
-  {step:1,TA:46956,BA:49235,BA10:50654,BA20:52075,BA30:53492,BA40:54912,BA50:56331,BA60:57752,M:59200,M10:60630,M20:62060,M30:63489,M40:64919,M50:66348},
-  {step:2,TA:47927,BA:50205,BA10:51626,BA20:53045,BA30:54466,BA40:55886,BA50:57305,BA60:58725,M:60171,M10:61602,M20:63032,M30:64461,M40:65891,M50:67320},
-  {step:3,TA:48902,BA:51179,BA10:52599,BA20:54018,BA30:55439,BA40:56860,BA50:58280,BA60:59699,M:61146,M10:62576,M20:64007,M30:65436,M40:66866,M50:68295},
-  {step:4,TA:49884,BA:52160,BA10:53579,BA20:54999,BA30:56420,BA40:57840,BA50:59259,BA60:60679,M:62126,M10:63556,M20:64986,M30:66415,M40:67845,M50:69274},
-  {step:5,TA:50861,BA:53139,BA10:54559,BA20:55980,BA30:57398,BA40:58818,BA50:60238,BA60:61657,M:63104,M10:64535,M20:65965,M30:67394,M40:68824,M50:70253},
-  {step:6,TA:51844,BA:54122,BA10:55541,BA20:56960,BA30:58381,BA40:59801,BA50:61220,BA60:62640,M:64086,M10:65517,M20:66947,M30:68376,M40:69806,M50:71235},
-  {step:7,TA:52820,BA:55097,BA10:56517,BA20:57936,BA30:59357,BA40:60777,BA50:62196,BA60:63616,M:65062,M10:66493,M20:67923,M30:69352,M40:70782,M50:72211},
-  {step:8,TA:53798,BA:56075,BA10:57495,BA20:58914,BA30:60334,BA40:61754,BA50:63173,BA60:64593,M:66039,M10:67470,M20:68900,M30:70329,M40:71759,M50:73188},
-  {step:9,TA:54775,BA:57053,BA10:58473,BA20:59892,BA30:61313,BA40:62733,BA50:64152,BA60:65572,M:67019,M10:68449,M20:69880,M30:71309,M40:72739,M50:74168},
-  {step:10,TA:55751,BA:58029,BA10:59449,BA20:60868,BA30:62289,BA40:63709,BA50:65128,BA60:66548,M:67994,M10:69425,M20:70855,M30:72284,M40:73714,M50:75143},
-  {step:11,TA:56728,BA:59006,BA10:60426,BA20:61845,BA30:63266,BA40:64686,BA50:66105,BA60:67525,M:68971,M10:70402,M20:71832,M30:73261,M40:74691,M50:76120},
-  {step:12,TA:57704,BA:59982,BA10:61402,BA20:62821,BA30:64242,BA40:65662,BA50:67081,BA60:68501,M:69947,M10:71378,M20:72808,M30:74237,M40:75667,M50:77196},
-  {step:13,TA:58681,BA:60959,BA10:62379,BA20:63798,BA30:65219,BA40:66639,BA50:68058,BA60:69478,M:70924,M10:72355,M20:73785,M30:75214,M40:76644,M50:78073},
-  {step:14,TA:59657,BA:61935,BA10:63355,BA20:64774,BA30:66195,BA40:67615,BA50:69034,BA60:70454,M:71900,M10:73331,M20:74761,M30:76190,M40:77620,M50:79049},
-  {step:15,TA:60634,BA:62912,BA10:64332,BA20:65751,BA30:67172,BA40:68592,BA50:70011,BA60:71431,M:72877,M10:74308,M20:75738,M30:77167,M40:78597,M50:80026},
-  {step:16,TA:61610,BA:63888,BA10:65308,BA20:66727,BA30:68148,BA40:69568,BA50:70987,BA60:72407,M:73853,M10:75284,M20:76714,M30:78143,M40:79573,M50:81002},
-  {step:17,TA:62587,BA:64865,BA10:66285,BA20:67704,BA30:69125,BA40:70545,BA50:71964,BA60:73384,M:74830,M10:76261,M20:77691,M30:79120,M40:80550,M50:81979},
-  {step:18,TA:63563,BA:65841,BA10:67261,BA20:68680,BA30:70101,BA40:71521,BA50:72940,BA60:74360,M:75806,M10:77237,M20:78667,M30:80096,M40:81526,M50:82955},
-  {step:19,TA:64540,BA:66818,BA10:68238,BA20:69657,BA30:71078,BA40:72498,BA50:73917,BA60:75337,M:76783,M10:78214,M20:79644,M30:81073,M40:82503,M50:83932},
-  {step:20,TA:65516,BA:67794,BA10:69214,BA20:70633,BA30:72054,BA40:73474,BA50:74893,BA60:76313,M:77759,M10:79190,M20:80620,M30:82049,M40:83479,M50:84908},
-  {step:21,TA:66493,BA:68771,BA10:70191,BA20:71610,BA30:73031,BA40:74451,BA50:75870,BA60:77290,M:78736,M10:80167,M20:81597,M30:83026,M40:84456,M50:85885},
-  {step:22,TA:67469,BA:69747,BA10:71167,BA20:72586,BA30:74007,BA40:75427,BA50:76846,BA60:78266,M:79712,M10:81143,M20:82573,M30:84002,M40:85432,M50:86861}
+  {step:1,TA:31297, BA:52156, BA10:55028, BA20:57896, BA30:60765, BA40:63634, BA50:66502, BA60:69371,  M:66502,  M10:69371, M20:72239, M30:75109, M40:77975, M50:80846},
+  {step:2,TA:null, BA:54767, BA10:57634, BA20:60504, BA30:63372, BA40:66241, BA50:69109, BA60:71980,  M:69109,  M10:71980, M20:74847, M30:77714, M40:80586, M50:83453},
+  {step:3,TA:null, BA:57373, BA10:60243, BA20:63112, BA30:65979, BA40:68850, BA50:71716, BA60:74587,  M:71716,  M10:74587, M20:77457, M30:80324, M40:83194, M50:86062},
+  {step:4,TA:null, BA:60243, BA10:63112, BA20:65979, BA30:68850, BA40:71716, BA50:74587, BA60:77457,  M:74587,  M10:77457, M20:80324, M30:83194, M40:86062, M50:88933},
+  {step:5,TA:null, BA:63112, BA10:65979, BA20:68850, BA30:71716, BA40:74587, BA50:77457, BA60:80324,  M:77457,  M10:80324, M20:83194, M30:86062, M40:88933, M50:91799},
+  {step:6,TA:null, BA:66241, BA10:69109, BA20:71980, BA30:74847, BA40:77714, BA50:80586, BA60:83453,  M:80586,  M10:83453, M20:86324, M30:89192, M40:92059, M50:94927},
+  {step:7,TA:null, BA:69371, BA10:72239, BA20:75109, BA30:77975, BA40:80846, BA50:83716, BA60:86584,  M:83716,  M10:86584, M20:89453, M30:92320, M40:95189, M50:98059},
+  {step:8,TA:null, BA:72503, BA10:75369, BA20:78238, BA30:81106, BA40:83976, BA50:86845, BA60:89712,  M:86845,  M10:89712, M20:92584, M30:95450, M40:98318, M50:101187},
+  {step:9,TA:null, BA:75630, BA10:78500, BA20:81369, BA30:84238, BA40:87104, BA50:89974, BA60:92843,  M:89974,  M10:92843, M20:95713, M30:98579, M40:101449, M50:104317},
+  {step:10,TA:null,BA:78761, BA10:81629, BA20:84497, BA30:87365, BA40:90236, BA50:93105, BA60:95973, M:93105, M10:95973, M20:98841, M30:101709, M40:104578, M50:107447},
+  {step:11,TA:null,BA:81890, BA10:84756, BA20:87629, BA30:90495, BA40:93362, BA50:96233, BA60:99101, M:96233, M10:99101, M20:101972, M30:104840, M40:107708, M50:110576},
+  {step:12,TA:null,BA:85019, BA10:87889, BA20:90757, BA30:93625, BA40:96492, BA50:99363, BA60:102230, M:99363, M10:102230, M20:105099, M30:107968, M40:110836, M50:113706},
+  {step:13,TA:null,BA:88149, BA10:91017, BA20:93885, BA30:96754, BA40:99623, BA50:102492, BA60:105360, M:102492, M10:105360, M20:108229, M30:111098, M40:113965, M50:116836},
+  {step:14,TA:null,BA:91279, BA10:94148, BA20:97016, BA30:99882, BA40:102752, BA50:105621, BA60:108490, M:105621, M10:108490, M20:111360, M30:114228, M40:117095, M50:119964},
+  {step:15,TA:null,BA:94407, BA10:97277, BA20:100145, BA30:103014, BA40:105882, BA50:108752, BA60:111620, M:108752, M10:111620, M20:114488, M30:117357, M40:120225, M50:123095},
+  {step:16,TA:null,BA:97537, BA10:100406, BA20:103274, BA30:106143, BA40:109012, BA50:111881, BA60:114751, M:111881, M10:114751, M20:117618, M30:120486, M40:123354, M50:126222},
+  {step:17,TA:null,BA:100667, BA10:103534, BA20:106405, BA30:109272, BA40:112139, BA50:115010, BA60:117880, M:115010, M10:117880, M20:120748, M30:123616, M40:126486, M50:129355},
+  {step:18,TA:null,BA:103794, BA10:106664, BA20:109532, BA30:112401, BA40:115270, BA50:118140, BA60:121006, M:118140, M10:121006, M20:123874, M30:126745, M40:129613, M50:132483},
+  {step:19,TA:null,BA:106925, BA10:109795, BA20:112661, BA30:115530, BA40:118400, BA50:121269, BA60:124138, M:121269, M10:124138, M20:127006, M30:129876, M40:132742, M50:135612},
+  {step:20,TA:null,BA:110056, BA10:112923, BA20:115792, BA30:118660, BA40:121529, BA50:124398, BA60:127266, M:124398, M10:127266, M20:130136, M30:133006, M40:135874, M50:138742},
+  {step:21,TA:null,BA:113186, BA10:116053, BA20:118920, BA30:121791, BA40:124658, BA50:127529, BA60:130399, M:127529, M10:130399, M20:133265, M30:136134, M40:139003, M50:141872},
+  {step:22,TA:null,BA:116315, BA10:119183, BA20:122050, BA30:124919, BA40:127790, BA50:130659, BA60:133527, M:130659, M10:133527, M20:136395, M30:139264, M40:142133, M50:145000}
 ];
+window.baseTable = baseTable;
 
-/* =========================
-   UI & Roster state
-   ========================= */
-let roster = [];
+/* ------------------------------ State & helpers ------------------------------ */
+let roster=[];
 let lastSalaryPayload = null;
 let lastRecalcAt = null;
 let affordabilityComputed = false;
-const scenarioKey = "bta_salary_scenarios";
+
+const rosterStorageRawKey = "bta_roster_raw_csv";
+const rosterStorageParsedKey = "bta_roster_parsed";
+const rosterLegacyKey = "bta_roster_json";
+
+function normalizeBaseTableData(table){
+  const row19 = table.find(r => r.step === 19);
+  if (row19 && row19.E != null && row19.F != null && row19.E > row19.F) {
+    const tmp = row19.E;
+    row19.E = row19.F;
+    row19.F = tmp;
+    console.warn("Normalized baseTable step 19: swapped E/F values.");
+  }
+}
+
+function validateBaseTableData(table){
+  if (!Array.isArray(table)) return;
+  const legacyCols = ["A","B","C","D","E","F","G"];
+  const hasLegacyCols = table.some(row => legacyCols.some(col => col in row));
+  const columns = hasLegacyCols ? legacyCols : COLS;
+  const issues = [];
+
+  table.forEach(row => {
+    columns.forEach(col => {
+      if (!(col in row)) {
+        issues.push(`Missing column ${col} on step ${row.step}`);
+        return;
+      }
+      if (row[col] != null && Number.isNaN(Number(row[col]))) {
+        issues.push(`NaN value in ${col} at step ${row.step}`);
+      }
+    });
+  });
+
+  columns.forEach(col => {
+    let prev = null;
+    table.forEach(row => {
+      const value = row[col];
+      if (value == null) return;
+      if (prev != null && value < prev) {
+        issues.push(`Non-increasing ${col}: step ${row.step} (${value}) < prior (${prev})`);
+      }
+      prev = value;
+    });
+  });
+
+  if (issues.length) {
+    console.error("Base table validation issues:", issues);
+  }
+}
+
+normalizeBaseTableData(baseTable);
+validateBaseTableData(baseTable);
+
+/* =========================
+   DO NOT EDIT: scenario storage + status wiring
+   Small syntax errors here will break the entire app.
+   ========================= */
+/* scenario storage */
+const scenarioKey = "bta_salary_scenarios_v1";
 let scenarios = { A:null, B:null };
 
 function updateScenarioStatus(){
@@ -718,43 +858,6 @@ function getContributionPct(year, paramsOverride){
   const el=document.getElementById(key);
   return el?parseFloat(el.value):0.19;
 }
-function populateContributionSelect(){
-  const selects = [];
-  for(let i=1;i<=5;i++){
-    const el = document.getElementById("contributionY"+i);
-    if(el) selects.push(el);
-  }
-  if(!selects.length) return;
-
-  selects.forEach(select => {
-    const currentPct = select.value ? parseFloat(select.value) * 100 : null;
-    select.innerHTML = "";
-    const baseOptions = [0, 10, 12, 15, 18];
-    const rangeOptions = [];
-    for(let tenths=190; tenths<=250; tenths++){
-      rangeOptions.push(tenths / 10);
-    }
-    const allOptions = [...baseOptions, ...rangeOptions];
-    const uniqueSorted = Array.from(new Set(allOptions)).sort((a,b)=>a-b);
-    const optionValues = new Set();
-    uniqueSorted.forEach(pct => {
-      const value = (pct / 100).toFixed(3);
-      optionValues.add(value);
-      const label = Number.isInteger(pct) ? `${pct}` : pct.toFixed(1).replace(/\.0$/, "");
-      const opt = document.createElement("option");
-      opt.value = value;
-      opt.textContent = `${label}%`;
-      select.appendChild(opt);
-    });
-    let targetValue = currentPct != null && !Number.isNaN(currentPct)
-      ? (Math.round(currentPct * 10) / 10 / 100).toFixed(3)
-      : null;
-    if(!targetValue || !optionValues.has(targetValue)){
-      targetValue = (19 / 100).toFixed(3);
-    }
-    select.value = targetValue;
-  });
-}
 function gfForYear(y, paramsOverride){
   const base = paramsOverride ? +paramsOverride.gf_base : parseFloat(document.getElementById("gfBase").value||"0");
   const g = (paramsOverride ? +paramsOverride.gf_growth_pct : parseFloat(document.getElementById("gfGrowthPct").value||"3.75"))/100;
@@ -802,232 +905,337 @@ function toInitials(name){
   if(!name) return "";
   return String(name).split(/\s+/).filter(Boolean).map(part=>part[0].toUpperCase()).join('');
 }
-function buildRosterIndex(){
-  const idx = {};
-  roster.forEach(r=>{
-    const step=+r.Step||1, col=(r.Column||"").toUpperCase().trim();
-    const fte=+r.FTE||1;
-    if(!step || !col) return;
-    const k=step+"|"+col;
-    if(!idx[k]) idx[k] = {count:0, fte:0, initials:[]};
-    idx[k].count += 1;
-    idx[k].fte += fte;
-    if(r.Name) idx[k].initials.push(toInitials(r.Name));
+function buildRosterIndex(years, paramsOverride){
+  const params = paramsOverride || readUIParams();
+  const idx = new Map();
+  years.forEach(y=>{
+    roster.forEach(r=>{
+      const step = stepForYear(+r.Step||1, y);
+      const col = r.Column;
+      const key = `${y}|${step}|${col}`;
+      const row=baseTable.find(bt=>bt.step===step);
+      const base=row?row[col]:null;
+      if(base==null) return;
+      const sal = computeCellValue(base,y, params)*(+r.FTE||1);
+      const cur = idx.get(key) || {count:0, fte:0, names:[], total:0};
+      cur.count += 1;
+      cur.fte += (+r.FTE||1);
+      cur.total += sal;
+      const init = toInitials(r.Name);
+      if(init && !cur.names.includes(init)) cur.names.push(init);
+      idx.set(key, cur);
+    });
   });
   return idx;
 }
 
-/* ------------------------------ Salary table builder ------------------------------ */
-function parseYearRange(input){
-  if(!input) return [];
-  const s = input.trim();
-  if(!s) return [];
-  if(/^\d+$/.test(s)) return [parseInt(s,10)];
-  const m = s.match(/^(\d+)\s*-\s*(\d+)$/);
-  if(m){
-    let a=parseInt(m[1],10), b=parseInt(m[2],10);
-    if(a>b) [a,b]=[b,a];
-    const arr=[]; for(let i=a;i<=b;i++) arr.push(i);
-    return arr;
-  }
-  return [];
-}
-
-function buildTableForYear(y, paramsOverride){
-  const params = paramsOverride || readUIParams();
-  const rosterIndex = buildRosterIndex();
-  const rows = baseTable.map(row=>{
-    const cells = COLS.map(col=>{
-      const base=row[col];
-      if(base==null) return {col, html:""};
-      const val = computeCellValue(base, y, params);
-      const moneyStr = money(val);
-      const step = row.step;
-      const k=step+"|"+col;
-      const rosterInfo = rosterIndex[k];
-      const rosterSuffix = rosterInfo ? `
-        <div class="detail ${rosterInfo.count? 'show':''}">
-          ${rosterInfo.count} roster · ${rosterInfo.fte.toFixed(2)} FTE · ${rosterInfo.initials.join(", ")}
-        </div>` : "";
-      return {col, html:`<span class="main">${moneyStr}</span>${rosterSuffix}`, hasRoster: !!rosterInfo};
-    });
-    return {step: row.step, cells};
-  });
-
-  let html = `
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Step</th>
-          ${COLS.map(c=>`<th data-col="${c}">${c}</th>`).join("")}
-        </tr>
-      </thead>
-      <tbody>
-  `;
-  rows.forEach(r=>{
-    html += `<tr><td>${r.step}</td>`;
-    r.cells.forEach(c=>{
-      const rosterClass = c.hasRoster ? " cell-has-roster" : "";
-      html += `<td data-col="${c.col}" class="${rosterClass}">${c.html}</td>`;
-    });
-    html += `</tr>`;
-  });
-  html += "</tbody></table></div>";
-  return html;
-}
-
-function generateTable(){
-  const years = parseYearRange(document.getElementById("tableYear").value)
-    .filter(y => y>=0 && y<=5);
-  if(!years.length){ setStatus("Enter a year or year-range (0–5)."); return; }
-  setStatus("");
-  const scenarioChoice = document.getElementById("exportScenario")?.value || "ui";
-  const { params, warn } = getParamsOrWarn(scenarioChoice);
-  if(warn){ setStatus(warn); return; }
-
-  const out = document.getElementById("renderArea");
-  if(!out) return;
-
-  const html = years.map(y=>{
-    const label = (y===0) ? "Year 0" : `Year ${y}`;
-    return `
+/* =========================
+   DO NOT EDIT: core salary math + table generation
+   Small syntax errors here will break the entire app.
+   ========================= */
+/* ------------------------------ Rendering ------------------------------ */
+function bannerCard(year, tb, cost){
+  const rem=+(tb - cost).toFixed(2);
+  const pass= rem>=0;
+  const cls=pass?'ok':'bad';
+  return `
     <div class="card">
-      <h3>${label}</h3>
-      ${buildTableForYear(y, params)}
-    </div>`;
-  }).join("");
+      <div style="font-weight:800">Year ${year}</div>
+      <div class="${cls}" style="font-weight:800">${pass?'AFFORDABLE':'UNAFFORDABLE'}</div>
+      <div class="soft">Remaining: ${money(rem)}</div>
+      <div class="soft">Cost (incl. adders): ${money(cost)}</div>
+      <div class="soft">Teacher Budget: ${money(tb)}</div>
+    </div>
+  `;
+}
 
-  out.innerHTML = html;
-  markRecalc(false);
+function generateTableHtmlSingle(years, paramsOverride, label){
+  const params = paramsOverride || readUIParams();
+  const rosterIndex = buildRosterIndex(years, paramsOverride);
+
+  let pieces='';
+  const all = years.map(y=>{
+    const tb=teacherBudgetForYear(y, paramsOverride);
+    const cost=btaRosterCostForYear(y, paramsOverride);
+    return {y,tb,cost,pass:(tb-cost)>=0};
+  });
+  const allPass = all.every(x=>x.pass);
+
+  pieces += `<div class="banner ${allPass?'pass':'fail'}">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="font-weight:800;font-size:1.2rem">${allPass?'AFFORDABLE':'UNAFFORDABLE'}</div>
+      ${label ? `<span class="pill">${label}</span>` : ``}
+    </div>
+    <div class="soft">Check compares BTA salary cost (incl. employer adders) to Teacher Budget = GF × (1 − other obligations%) plus limited historical realloc in Year 1. Year 0/1 keep the same step; Year 2+ advances +1/yr to max 22.</div>
+  </div>`;
+  pieces += `<div class="kvs">${all.map(x=>bannerCard(x.y,x.tb,x.cost)).join('')}</div>`;
+
+  // IMPORTANT: all OFF by default
+  pieces += `<div class="actions">
+    <button id="printBtn">Print Salary Schedule</button>
+    <button id="downloadJsonBtn">Download JSON</button>
+    <button id="generatePdfBtn">Generate Board PDF</button>
+    <label><input type="checkbox" id="toggleInsurance"> Show Health Insurance</label>
+    <label><input type="checkbox" id="toggleYear0"> Show Year 0 Comparison</label>
+    <label><input type="checkbox" id="toggleTA"> Hide TA Column</label>
+  </div>`;
+
+  const cell = 'style="border:1px solid #cfd6df;padding:6px 8px;vertical-align:top"';
+
+  years.forEach(year=>{
+    const tb=teacherBudgetForYear(year, paramsOverride), cost=btaRosterCostForYear(year, paramsOverride);
+    pieces += `<div class="card soft" style="margin:6px 0 8px">
+      <strong>Year ${year} Budget</strong> — Teacher Budget: ${money(tb)} · Est. Roster Cost: ${money(cost)} · Remaining: <span class="${(tb-cost)>=0?'ok':'bad'}">${money(tb-cost)}</span>
+    </div>`;
+
+    pieces += `<div class="table-container"><table><thead><tr>
+      <th ${cell} style="background:var(--band);color:#fff">Step</th>
+      ${COLS.map(c=>`<th ${cell} style="background:var(--band);color:#fff" data-col="${c}">${c}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+    baseTable.forEach(r=>{
+      pieces += `<tr><td ${cell} style="background:#f1f5f9">${r.step}</td>`;
+      COLS.forEach(col=>{
+        if(r[col]==null){
+          pieces += `<td ${cell} class="soft" data-col="${col}">N/A</td>`;
+        }else{
+          const curr=+(computeCellValue(r[col],year, params).toFixed(2));
+          const y0=+(r[col].toFixed(2));
+          const y0diff=+(curr-y0).toFixed(2);
+
+          const pct=getContributionPct(year, paramsOverride);
+          const indNet=computeHealthInsuranceNet(curr, pct, IND_PREM_YEAR);
+          const famNet=computeHealthInsuranceNet(curr, pct, FAM_PREM_YEAR);
+
+          const key = `${year}|${r.step}|${col}`;
+          const meta = rosterIndex.get(key) || {count:0, fte:0, names:[], total:0};
+          let tip = `Year ${year} • Step ${r.step} • ${col}`;
+          if(meta.count>0){
+            tip += `\nStaff in cell: ${meta.count}`;
+            if(meta.names.length){ tip += ` (${meta.names.join(", ")})`; }
+            tip += `\nFTE: ${meta.fte.toFixed(2)}\nTotal salary cost: ${money(meta.total.toFixed(2))}`;
+          }else{
+            tip += `\nNo staff currently in this cell.`;
+          }
+
+          pieces += `<td ${cell} data-year="${year}" data-step="${r.step}" data-col="${col}" class="${meta.count>0?'cell-has-roster':''}" title="${tip.replace(/"/g,'&quot;')}">
+            <div class="main">${money(curr)}</div>
+            <div class="detail d-hi">After HI Ind: ${money(indNet)} · Fam: ${money(famNet)}</div>
+            <div class="detail d-y0">Year 0: ${money(y0)} · Δ: ${money(y0diff)}</div>
+            <div class="detail d-ta">TA: ${r.TA==null?'N/A':money(computeCellValue(r.TA,year, params))}</div>
+          </td>`;
+        }
+      });
+      pieces += "</tr>";
+    });
+
+    pieces += `</tbody></table></div>`;
+    if(year !== years[years.length-1]) pieces += `<div class="print-break"></div>`;
+  });
+
+  return pieces;
+}
+
+function generateTableHtmlCompare(years){
+  const paramsA = scenarios.A || null;
+  const paramsB = scenarios.B || null;
+
+  return `
+  <div class="compare-head">
+    <div style="font-weight:800">Scenario Comparison</div>
+    <div class="hint">Left: Scenario A · Right: Scenario B</div>
+  </div>
+  <div class="compare-wrap">
+    <div>${generateTableHtmlSingle(years, paramsA, "Scenario A")}</div>
+    <div>${generateTableHtmlSingle(years, paramsB, "Scenario B")}</div>
+  </div>`;
+}
+
+/* ------------------------------ Generate table ------------------------------ */
+function parseYearRange(s){
+  s=(s||"").trim();
+  if(!s) return [];
+  if(s.includes("-")){
+    let [a,b]=s.split("-").map(x=>parseInt(x.trim(),10));
+    if(isNaN(a)||isNaN(b)) return [];
+    if(a>b){ const t=a;a=b;b=t; }
+    const years=[];
+    for(let y=a;y<=b;y++) years.push(y);
+    return years;
+  }
+  const one=parseInt(s,10);
+  if(isNaN(one)) return [];
+  return [one];
+}
+
+function generateTableInline(){
+  const years=parseYearRange(document.getElementById("tableYear").value);
+  if(!years.length || years.some(y=>y<0||y>5)){
+    setStatus("Enter a year (0-5) or range (1-5).");
+    return;
+  }
+  setStatus("");
+
+  const compare = document.getElementById("compareOnGenerate");
+  const useCompare = compare && compare.checked && scenarios.A && scenarios.B;
+
+  const html = useCompare ? generateTableHtmlCompare(years) : generateTableHtmlSingle(years, null, null);
+  renderTableInline(html, years);
 }
 
 function generateTableNewWindow(){
-  const years = parseYearRange(document.getElementById("tableYear").value)
-    .filter(y => y>=0 && y<=5);
-  if(!years.length){ setStatus("Enter a year or year-range (0–5)."); return; }
+  const years=parseYearRange(document.getElementById("tableYear").value);
+  if(!years.length || years.some(y=>y<0||y>5)){
+    setStatus("Enter a year (0-5) or range (1-5).");
+    return;
+  }
+  setStatus("");
 
-  const scenarioChoice = document.getElementById("exportScenario")?.value || "ui";
-  const { params, warn } = getParamsOrWarn(scenarioChoice);
-  if(warn){ setStatus(warn); return; }
+  const compare = document.getElementById("compareOnGenerate");
+  const useCompare = compare && compare.checked && scenarios.A && scenarios.B;
 
-  const doc = window.open("", "_blank", "noopener");
-  if(!doc){ alert("Popup blocked."); return; }
+  const html = useCompare ? generateTableHtmlCompare(years) : generateTableHtmlSingle(years, null, null);
+  openTableNewWindow(html, years);
+}
 
-  const head = `
-<!DOCTYPE html><html><head><title>BTA Salary Table</title>
-<style>${document.querySelector("style").innerHTML}</style>
-</head><body>`;
-  const footer = `</body></html>`;
-  doc.document.write(head);
+function renderTableInline(html, years){
+  const renderArea = document.getElementById("renderArea");
+  if(renderArea) renderArea.innerHTML = html;
+  wireTableControls(document, years);
+}
 
-  years.forEach(y=>{
-    const label = (y===0) ? "Year 0" : `Year ${y}`;
-    doc.document.write(`<div class="card"><h3>${label}</h3>${buildTableForYear(y, params)}</div>`);
-  });
+function openTableNewWindow(html, years){
+  let w;
+  try{ w=window.open("", "_blank"); }catch(e){}
+  if(!w || w.closed || typeof w.document==="undefined"){
+    renderTableInline(html, years);
+    setStatus("Popup blocked. Rendered table inline instead.");
+    return;
+  }
+  const styleText = document.querySelector("style")?.textContent || "";
+  w.document.write(`
+  <html>
+  <head>
+    <title>Salary Schedule</title>
+    <style>
+    ${styleText}
+    body{margin:0;background:#eef2f7}
+    .new-window-actions{display:flex;gap:10px;flex-wrap:wrap;margin:10px}
+    @media print{
+      .actions,.banner,.compare-head,.new-window-actions{display:none !important;}
+      .table-container{border:none !important;overflow:visible !important;}
+      .compare-wrap{display:block !important;}
+      .table-container thead th{position:static !important;}
+    }
+    </style>
+  </head>
+  <body>
+    <div class="new-window-actions">
+      <button type="button" id="newWindowPrintBtn">Print</button>
+      <button type="button" id="newWindowCloseBtn">Close</button>
+    </div>
+    ${html}
+  </body>
+  </html>`);
+  w.document.close();
+  wireTableControls(w.document, years);
+  const printBtn = w.document.getElementById("newWindowPrintBtn");
+  if(printBtn){ printBtn.addEventListener("click", ()=> w.print()); }
+  const closeBtn = w.document.getElementById("newWindowCloseBtn");
+  if(closeBtn){ closeBtn.addEventListener("click", ()=> w.close()); }
+}
 
-  doc.document.write(`
-  <div class="actions">
-    <button id="printBtn">Print</button>
-    <button id="downloadJsonBtn">Download JSON</button>
-    <button id="generatePdfBtn">Download PDF (Tables)</button>
-  </div>
-  `);
+function wireTableControls(doc, yearsFromCaller){
+  const toggleHI = doc.getElementById("toggleInsurance");
+  const toggleY0 = doc.getElementById("toggleYear0");
+  const toggleTA = doc.getElementById("toggleTA");
 
-  doc.document.write(footer);
-  doc.document.close();
+  const detailsHI = doc.querySelectorAll(".d-hi");
+  const detailsY0 = doc.querySelectorAll(".d-y0");
+  const tdsTA = doc.querySelectorAll('[data-col="TA"]');
 
-  doc.addEventListener("DOMContentLoaded", ()=>{
-    const detailsHI = doc.getElementById("detailsHI");
-    const detailsY0 = doc.getElementById("detailsY0");
-    const toggleHI = doc.getElementById("toggleHI");
-    const toggleY0 = doc.getElementById("toggleY0");
-    const toggleTA = doc.getElementById("toggleTA");
-    const tdsTA = doc.querySelectorAll("td[data-col='TA'], th[data-col='TA']");
+  const setDisplay = (nodes, on) => nodes.forEach(n=>n.classList.toggle("show", !!on));
 
-    const setDisplay=(node, on)=>{ if(node) node.style.display = on ? "block" : "none"; };
-
-    const buildComputedTablesForYears = (years, params) => {
-      return years.reduce((yearAcc, year) => {
-        const stepMap = {};
-        baseTable.forEach(row => {
-          const rowValues = {};
-          COLS.forEach(col => {
-            const base = row[col];
-            if (base == null) return;
-            rowValues[col] = +computeCellValue(base, year, params).toFixed(2);
-          });
-          stepMap[`Step${row.step}`] = rowValues;
+  const buildComputedTablesForYears = (years, params) => {
+    return years.reduce((yearAcc, year) => {
+      const stepMap = {};
+      baseTable.forEach(row => {
+        const rowValues = {};
+        COLS.forEach(col => {
+          const base = row[col];
+          if (base == null) return;
+          rowValues[col] = +computeCellValue(base, year, params).toFixed(2);
         });
-        yearAcc[String(year)] = stepMap;
-        return yearAcc;
-      }, {});
-    };
-
-    if(toggleHI){ toggleHI.addEventListener("change", e=> setDisplay(detailsHI, e.target.checked)); }
-    if(toggleY0){ toggleY0.addEventListener("change", e=> setDisplay(detailsY0, e.target.checked)); }
-    if(toggleTA){
-      toggleTA.addEventListener("change", e=>{
-        const on = e.target.checked;
-        tdsTA.forEach(td=> td.style.display = on ? "none" : "");
+        stepMap[`Step${row.step}`] = rowValues;
       });
-    }
+      yearAcc[String(year)] = stepMap;
+      return yearAcc;
+    }, {});
+  };
 
-    const printBtn = doc.getElementById("printBtn");
-    if(printBtn){ printBtn.addEventListener("click", ()=> doc.defaultView.print()); }
+  if(toggleHI){ toggleHI.addEventListener("change", e=> setDisplay(detailsHI, e.target.checked)); }
+  if(toggleY0){ toggleY0.addEventListener("change", e=> setDisplay(detailsY0, e.target.checked)); }
+  if(toggleTA){
+    toggleTA.addEventListener("change", e=>{
+      const on = e.target.checked;
+      tdsTA.forEach(td=> td.style.display = on ? "none" : "");
+    });
+  }
 
-    const downloadJsonBtn = doc.getElementById("downloadJsonBtn");
-    if(downloadJsonBtn){
-      downloadJsonBtn.addEventListener("click", ()=>{
-        const years = Array.isArray(yearsFromCaller) && yearsFromCaller.length
-          ? yearsFromCaller
-          : (()=>{
-              const yEl = doc.getElementById("tableYear");
-              return yEl ? parseYearRange(yEl.value) : [];
-            })();
-        const payload={
-          meta:{
-            exportedAt:new Date().toISOString(),
-            version:"salary-payload-v3"
-          },
-          cols: COLS,
-          baseTable: baseTable,
-          ui:readUIParams(),
-          scenarios:{
-            A:scenarios.A || null,
-            B:scenarios.B || null
-          },
-          computedTables:{
-            ui: buildComputedTablesForYears(years, readUIParams()),
-            A: scenarios.A ? buildComputedTablesForYears(years, scenarios.A) : null,
-            B: scenarios.B ? buildComputedTablesForYears(years, scenarios.B) : null
-          },
-          roster:roster,
-          lastSalaryLookup: lastSalaryPayload || null,
-          affordability: years.map(y=>({year:y,teacher_budget:teacherBudgetForYear(y),bta_cost:btaRosterCostForYear(y)}))
-        };
-        const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-        const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="salary_payload.json"; a.click();
+  const printBtn = doc.getElementById("printBtn");
+  if(printBtn){ printBtn.addEventListener("click", ()=> doc.defaultView.print()); }
+
+  const downloadJsonBtn = doc.getElementById("downloadJsonBtn");
+  if(downloadJsonBtn){
+    downloadJsonBtn.addEventListener("click", ()=>{
+      const years = Array.isArray(yearsFromCaller) && yearsFromCaller.length
+        ? yearsFromCaller
+        : (()=>{
+            const yEl = doc.getElementById("tableYear");
+            return yEl ? parseYearRange(yEl.value) : [];
+          })();
+      const payload={
+        meta:{
+          exportedAt:new Date().toISOString(),
+          version:"salary-payload-v3"
+        },
+        cols: COLS,
+        baseTable: baseTable,
+        ui:readUIParams(),
+        scenarios:{
+          A:scenarios.A || null,
+          B:scenarios.B || null
+        },
+        computedTables:{
+          ui: buildComputedTablesForYears(years, readUIParams()),
+          A: scenarios.A ? buildComputedTablesForYears(years, scenarios.A) : null,
+          B: scenarios.B ? buildComputedTablesForYears(years, scenarios.B) : null
+        },
+        roster:roster,
+        lastSalaryLookup: lastSalaryPayload || null,
+        affordability: buildAffordabilityData().rows
+      };
+      const blob = new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+      const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="salary_payload.json"; a.click();
+    });
+  }
+
+  const generatePdfBtn = doc.getElementById("generatePdfBtn");
+  if(generatePdfBtn){
+    generatePdfBtn.addEventListener("click", ()=>{
+      if(!(window.jspdf && window.jspdf.jsPDF)){ alert("PDF library not loaded."); return; }
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF("l", "pt", "letter");
+      const tables = doc.querySelectorAll("table");
+      let yPos=40;
+      tables.forEach((t, idx)=>{
+        if(idx>0){ pdf.addPage(); yPos=40; }
+        pdf.text("Salary Schedule", 40, 30);
+        pdf.autoTable({ html: t, startY: yPos, styles:{fontSize:7}, theme:"grid" });
       });
-    }
-
-    const generatePdfBtn = doc.getElementById("generatePdfBtn");
-    if(generatePdfBtn){
-      generatePdfBtn.addEventListener("click", ()=>{
-        if(!(window.jspdf && window.jspdf.jsPDF)){ alert("PDF library not loaded."); return; }
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF("l", "pt", "letter");
-        const tables = doc.querySelectorAll("table");
-        let yPos=40;
-        tables.forEach((t, idx)=>{
-          if(idx>0){ pdf.addPage(); yPos=40; }
-          pdf.text("Salary Schedule", 40, 30);
-          pdf.autoTable({ html: t, startY: yPos, styles:{fontSize:7}, theme:"grid" });
-        });
-        pdf.save("salary_schedule.pdf");
-      });
-    }
-  });
+      pdf.save("salary_schedule.pdf");
+    });
+  }
 }
 
 /* ------------------------------ UI param read/write ------------------------------ */
@@ -1044,7 +1252,13 @@ function readUIParams(){
     gf_base: parseFloat(document.getElementById("gfBase").value||"0"),
     gf_growth_pct: parseFloat(document.getElementById("gfGrowthPct").value||"0"),
     adder_pct: parseFloat(document.getElementById("adderPct").value||"0"),
-    other_pct: parseFloat(document.getElementById("otherPct").value||"0")
+    other_pct: parseFloat(document.getElementById("otherPct").value||"0"),
+    budget: parseFloat(document.getElementById("budget")?.value||"0"),
+    max_budget_pct: parseFloat(document.getElementById("maxBudgetPct")?.value||"0"),
+    max_budget_flat: parseFloat(document.getElementById("maxBudgetFlat")?.value||"0"),
+    state_aid_pct: parseFloat(document.getElementById("stateAidPct")?.value||"0"),
+    addl_revenue: parseFloat(document.getElementById("addlRevenue")?.value||"0"),
+    other_savings: parseFloat(document.getElementById("otherSavings")?.value||"0")
   };
 }
 function writeUIParams(p){
@@ -1064,10 +1278,150 @@ function writeUIParams(p){
   if(p.gf_growth_pct!=null && document.getElementById("gfGrowthPct")) document.getElementById("gfGrowthPct").value = p.gf_growth_pct;
   if(p.adder_pct!=null && document.getElementById("adderPct")) document.getElementById("adderPct").value = p.adder_pct;
   if(p.other_pct!=null && document.getElementById("otherPct")) document.getElementById("otherPct").value = p.other_pct;
+  if(p.budget!=null && document.getElementById("budget")) document.getElementById("budget").value = p.budget;
+  if(p.max_budget_pct!=null && document.getElementById("maxBudgetPct")) document.getElementById("maxBudgetPct").value = p.max_budget_pct;
+  if(p.max_budget_flat!=null && document.getElementById("maxBudgetFlat")) document.getElementById("maxBudgetFlat").value = p.max_budget_flat;
+  if(p.state_aid_pct!=null && document.getElementById("stateAidPct")) document.getElementById("stateAidPct").value = p.state_aid_pct;
+  if(p.addl_revenue!=null && document.getElementById("addlRevenue")) document.getElementById("addlRevenue").value = p.addl_revenue;
+  if(p.other_savings!=null && document.getElementById("otherSavings")) document.getElementById("otherSavings").value = p.other_savings;
+}
+
+function computeRosterPayroll(year, paramsOverride){
+  const params = paramsOverride || readUIParams();
+  return roster.reduce((sum,r)=>{
+    const st = stepForYear(+r.Step||1, year);
+    const sal = computeSalaryAt(st, r.Column, +r.FTE||1, year, params);
+    return sum + (Number.isFinite(sal) ? sal : 0);
+  },0);
+}
+
+function calcContractSummary(){
+  const totalEl = document.getElementById("contractPayrollTotal");
+  let total = 0;
+  for(let y=1;y<=5;y++){
+    const val = computeRosterPayroll(y);
+    total += val;
+    const el = document.getElementById(`contractPayrollY${y}`);
+    if(el) el.textContent = money(val);
+  }
+  if(totalEl) totalEl.textContent = money(total);
+}
+
+function calcIncrementalSummary(){
+  const baseline = computeRosterPayroll(0);
+  const totalEl = document.getElementById("incrementalTotal");
+  let total = 0;
+  for(let y=1;y<=5;y++){
+    const val = computeRosterPayroll(y) - baseline;
+    total += val;
+    const el = document.getElementById(`incrementalY${y}`);
+    if(el) el.textContent = money(val);
+  }
+  if(totalEl) totalEl.textContent = money(total);
+}
+
+function buildAffordabilityData(){
+  const params = readUIParams();
+  const budget = params.budget || 0;
+  const maxBudgetPct = (params.max_budget_pct || 0) / 100;
+  const maxBudgetFlat = params.max_budget_flat || 0;
+  const stateAidPct = (params.state_aid_pct || 0) / 100;
+  const addlRevenue = params.addl_revenue || 0;
+  const otherSavings = params.other_savings || 0;
+  const baselinePayroll = computeRosterPayroll(0);
+  const allowableNewSpend = Math.max(budget * maxBudgetPct, maxBudgetFlat);
+  const revenueOffset = (budget * stateAidPct) + addlRevenue + otherSavings;
+
+  const rows = [];
+  for(let y=1;y<=5;y++){
+    const contractPayroll = computeRosterPayroll(y);
+    const incremental = contractPayroll - baselinePayroll;
+    const netImpact = incremental - revenueOffset;
+    const pass = netImpact <= allowableNewSpend;
+    rows.push({
+      year: y,
+      contractPayroll,
+      baselinePayroll,
+      incremental,
+      revenueOffset,
+      netImpact,
+      allowableNewSpend,
+      pass
+    });
+  }
+
+  return { rows, baselinePayroll, allowableNewSpend, revenueOffset };
+}
+
+function renderAffordability(){
+  const summary = document.getElementById("affordabilitySummary");
+  const error = document.getElementById("affordabilityError");
+  const body = document.getElementById("affordabilityTableBody");
+  affordabilityComputed = false;
+
+  if(!summary || !error || !body) return;
+
+  if(!roster.length){
+    error.style.display = "block";
+    error.textContent = "Roster required: load or paste a roster to compute affordability.";
+    summary.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
+  const { rows } = buildAffordabilityData();
+  const failures = rows.filter(r => !r.pass);
+  const within = rows.length - failures.length;
+
+  summary.className = `banner ${failures.length ? "fail" : "pass"}`;
+  summary.style.display = "block";
+  if(failures.length){
+    const details = failures.map(r => `Y${r.year} (${money(r.netImpact - r.allowableNewSpend)} over)`).join(", ");
+    summary.textContent = `Within affordability in ${within} of ${rows.length} years. Failing years: ${details}.`;
+  }else{
+    summary.textContent = `Within affordability in ${within} of ${rows.length} years.`;
+  }
+
+  error.style.display = "none";
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.year}</td>
+      <td>${money(r.contractPayroll)}</td>
+      <td>${money(r.baselinePayroll)}</td>
+      <td>${money(r.incremental)}</td>
+      <td>${money(r.revenueOffset)}</td>
+      <td>${money(r.netImpact)}</td>
+      <td>${money(r.allowableNewSpend)}</td>
+      <td class="${r.pass ? "ok" : "bad"}">${r.pass ? "PASS" : "FAIL"}</td>
+    </tr>
+  `).join("");
+  affordabilityComputed = true;
+}
+
+function recalcAll(){
+  calcContractSummary();
+  calcIncrementalSummary();
+  renderAffordability();
+  lastRecalcAt = new Date();
+  updateDiagnostics();
 }
 
 /* ------------------------------ Roster export helpers ------------------------------ */
 function setRosterStatus(msg){ const el = document.getElementById("rosterStatus"); if(el) el.textContent = msg; }
+
+function saveRosterToStorage(rawCsv, parsed){
+  try{ localStorage.setItem(rosterStorageRawKey, rawCsv || ""); }catch(e){}
+  try{ localStorage.setItem(rosterStorageParsedKey, JSON.stringify(parsed || [])); }catch(e){}
+}
+
+function applyRoster(list, rawCsv, statusMsg){
+  roster = Array.isArray(list) ? list : [];
+  const rosterText = document.getElementById("rosterText");
+  if(rosterText && rawCsv != null) rosterText.value = rawCsv;
+  setRosterStatus(statusMsg || (roster.length ? `Loaded ${roster.length} rows.` : "Loaded 0 rows."));
+  saveRosterToStorage(rawCsv, roster);
+  recalcAll();
+}
 
 /* =========================
    DO NOT EDIT: export handlers
@@ -1088,64 +1442,105 @@ function exportRosterCSV(year, paramsOverride, suffix){
     return (s.includes(",")||s.includes("\"")) ? "\"" + s.replace(/"/g,"\"\"") + "\"" : s;
   }).join(",")).join("\n");
 
-  const blob=new Blob([csv],{type:"text/csv"});
+  const blob = new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download=`bta_roster_year${year}${suffix||""}.csv`;
+  a.download=`RosterUpdated_Y${year}${suffix||""}.csv`;
   a.click();
 }
+
 function exportRosterCSVBoth(year){
-  exportRosterCSV(year, scenarios.A, "_A");
-  exportRosterCSV(year, scenarios.B, "_B");
-}
-function exportAllYearsXLSX(years, scenarioChoice){
-  if(typeof XLSX==="undefined"){ alert("XLSX library not available."); return; }
-  const wb=XLSX.utils.book_new();
-  const labelChoice = scenarioChoice === "both" ? "A+B" : scenarioChoice.toUpperCase();
-  years.forEach(y=>{
-    let sheetName = `Year ${y}`;
-    if(scenarioChoice && scenarioChoice !== "ui") sheetName += ` (${labelChoice})`;
-    const rows=[["Name","Step","Column","FTE","Salary"]];
-    if(scenarioChoice==="both"){
-      roster.forEach(r=>{
-        const st=stepForYear(+r.Step||1, y);
-        const salA=computeSalaryAt(st,r.Column,+r.FTE||1,y, scenarios.A || readUIParams());
-        const salB=computeSalaryAt(st,r.Column,+r.FTE||1,y, scenarios.B || readUIParams());
-        rows.push([r.Name, st, r.Column, r.FTE, `A:${salA.toFixed(2)} / B:${salB.toFixed(2)}`]);
-      });
-    }else{
-      const params = scenarioChoice==="A" ? scenarios.A
-        : scenarioChoice==="B" ? scenarios.B
-        : readUIParams();
-      roster.forEach(r=>{
-        const st=stepForYear(+r.Step||1, y);
-        const sal=computeSalaryAt(st,r.Column,+r.FTE||1,y, params);
-        rows.push([r.Name, st, r.Column, r.FTE, sal.toFixed(2)]);
-      });
-    }
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  if(!roster.length){ alert("Load a roster first."); return; }
+  const missing=[];
+  const hasA=!!scenarios.A, hasB=!!scenarios.B;
+  if(!hasA) missing.push("Scenario A");
+  if(!hasB) missing.push("Scenario B");
+  if(!hasA && !hasB){
+    alert("Scenario A and Scenario B are empty. Save UI → A/B first.");
+    return;
+  }
+  if(missing.length){ alert(`${missing.join(" and ")} ${missing.length>1?'are':'is'} empty. Missing columns left blank.`); }
+
+  const lines = [["Name","Step","Column","FTE","Salary_A","Salary_B"]];
+  roster.forEach(r=>{
+    const st=stepForYear(+r.Step||1, year);
+    const salA = hasA ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.A) : "";
+    const salB = hasB ? computeSalaryAt(st,r.Column,+r.FTE||1,year, scenarios.B) : "";
+    lines.push([r.Name, st, r.Column, r.FTE, salA ? salA.toFixed(2) : "", salB ? salB.toFixed(2) : ""]);
   });
-  XLSX.writeFile(wb, `bta_roster_years_${years.join("-")}.xlsx`);
+  const csv = lines.map(row => row.map(x=>{
+    const s=String(x??"");
+    return (s.includes(",")||s.includes("\"")) ? "\"" + s.replace(/"/g,"\"\"") + "\"" : s;
+  }).join(",")).join("\n");
+
+  const blob = new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`RosterUpdated_Y${year}_A_B.csv`;
+  a.click();
 }
 
-/* ------------------------------ Roster actions ------------------------------ */
+function exportAllYearsXLSX(years, scenarioChoice){
+  if(!roster.length){ alert("Load a roster first."); return; }
+  if(typeof XLSX==="undefined"){ alert("XLSX not available."); return; }
+  const wb = XLSX.utils.book_new();
+
+  const addScenarioSheets = (label, paramsOverride)=>{
+    years.forEach(y=>{
+      const rows = roster.map(r=>{
+        const st=stepForYear(+r.Step||1, y);
+        const sal=computeSalaryAt(st,r.Column,+r.FTE||1,y, paramsOverride || readUIParams());
+        return {Name:r.Name,Step:st,Column:r.Column,FTE:+r.FTE||1,Salary:sal};
+      });
+      const ws=XLSX.utils.json_to_sheet(rows,{header:["Name","Step","Column","FTE","Salary"]});
+      XLSX.utils.book_append_sheet(wb, ws, `Year ${y} (${label})`);
+    });
+  };
+
+  if(scenarioChoice === "both"){
+    const missing = [];
+    if(!scenarios.A) missing.push("Scenario A");
+    if(!scenarios.B) missing.push("Scenario B");
+    if(missing.length){ alert(`${missing.join(" and ")} ${missing.length>1?'are':'is'} empty. Missing sheets skipped.`); }
+    if(scenarios.A) addScenarioSheets("A", scenarios.A);
+    if(scenarios.B) addScenarioSheets("B", scenarios.B);
+  }else if(scenarioChoice === "A"){
+    if(!scenarios.A){ alert("Scenario A is empty. Save UI → A first."); return; }
+    addScenarioSheets("A", scenarios.A);
+  }else if(scenarioChoice === "B"){
+    if(!scenarios.B){ alert("Scenario B is empty. Save UI → B first."); return; }
+    addScenarioSheets("B", scenarios.B);
+  }else{
+    addScenarioSheets("UI", null);
+  }
+
+  XLSX.writeFile(wb, `RosterUpdated_AllYears_${scenarioChoice.toUpperCase()}.xlsx`);
+}
+
+/* ------------------------------ UI wiring ------------------------------ */
 safeAddListener("useSampleRosterBtn", "click", ()=>{
   const embedded=document.getElementById("embeddedRoster").value.trim();
-  const rosterText = document.getElementById("rosterText");
-  if(rosterText) rosterText.value=embedded;
-  roster=parseCSV(embedded);
-  setRosterStatus(`Restored default roster (${roster.length}).`);
-  try{ localStorage.setItem("bta_roster_json", JSON.stringify(roster)); }catch(e){}
-  markRecalc(false);
+  const parsed = parseCSV(embedded);
+  applyRoster(parsed, embedded, `Restored default roster (${parsed.length}).`);
 });
 
 safeAddListener("clearRosterBtn", "click", ()=>{
   const rosterText = document.getElementById("rosterText");
   if(rosterText) rosterText.value="";
-  roster=[]; setRosterStatus("Roster cleared.");
-  try{ localStorage.removeItem("bta_roster_json"); }catch(e){}
-  markRecalc(false);
+  roster=[];
+  setRosterStatus("Roster cleared.");
+  saveRosterToStorage("", []);
+  recalcAll();
+});
+
+safeAddListener("clearSavedRosterBtn", "click", ()=>{
+  const rosterText = document.getElementById("rosterText");
+  if(rosterText) rosterText.value="";
+  roster=[];
+  setRosterStatus("Saved roster cleared.");
+  try{ localStorage.removeItem(rosterStorageRawKey); }catch(e){}
+  try{ localStorage.removeItem(rosterStorageParsedKey); }catch(e){}
+  recalcAll();
 });
 
 safeAddListener("loadRosterBtn", "click", ()=>{
@@ -1153,17 +1548,16 @@ safeAddListener("loadRosterBtn", "click", ()=>{
   const fileEl = document.getElementById("rosterFile");
   const file=fileEl ? fileEl.files[0] : null;
 
-  const finish=(list)=>{
-    roster=Array.isArray(list)?list:[]; setRosterStatus(roster.length?`Loaded ${roster.length} rows.`:'Loaded 0 rows.');
-    try{ localStorage.setItem("bta_roster_json", JSON.stringify(roster)); }catch(e){}
-    markRecalc(false);
+  const finish=(list, rawCsv)=>{
+    const parsedList = Array.isArray(list) ? list : [];
+    applyRoster(parsedList, rawCsv, parsedList.length ? `Loaded ${parsedList.length} rows.` : "Loaded 0 rows.");
   };
 
   if(file){
     const ext=(file.name.split(".").pop()||"").toLowerCase();
     if(ext==="csv"){
       const reader=new FileReader();
-      reader.onload=e=>finish(parseCSV(e.target.result));
+      reader.onload=e=>finish(parseCSV(e.target.result), e.target.result);
       reader.readAsText(file);
     }else{
       if(typeof XLSX==="undefined"){ setRosterStatus("Excel import not available."); return; }
@@ -1183,36 +1577,58 @@ safeAddListener("loadRosterBtn", "click", ()=>{
           });
           return parts.join(",");
         }).join("\n");
-        finish(parseCSV(header+csv));
+        const rawCsv = header + csv;
+        finish(parseCSV(rawCsv), rawCsv);
       };
       reader.readAsArrayBuffer(file);
     }
   }else if(txt){
-    finish(parseCSV(txt));
+    finish(parseCSV(txt), txt);
   }else{
     const embedded=document.getElementById("embeddedRoster").value.trim();
-    finish(parseCSV(embedded));
+    finish(parseCSV(embedded), embedded);
   }
+});
+
+safeAddListener("rosterText", "input", (e)=>{
+  const rawCsv = e.target.value || "";
+  if(!rawCsv.trim()){
+    roster = [];
+    setRosterStatus("Roster cleared.");
+    saveRosterToStorage("", []);
+    recalcAll();
+    return;
+  }
+  const parsed = parseCSV(rawCsv);
+  roster = parsed;
+  setRosterStatus(parsed.length ? `Autosaved ${parsed.length} rows.` : "Autosaved 0 rows.");
+  saveRosterToStorage(rawCsv, parsed);
+  recalcAll();
 });
 
 // Restore previous roster
 (function(){
   try{
-    const s=localStorage.getItem("bta_roster_json");
-    if(s){
-      const arr=JSON.parse(s)||[];
+    const raw = localStorage.getItem(rosterStorageRawKey);
+    if(raw){
+      const parsed = parseCSV(raw);
+      applyRoster(parsed, raw, `Restored ${parsed.length} rows from last session.`);
+      return;
+    }
+    const legacy = localStorage.getItem(rosterLegacyKey);
+    if(legacy){
+      const arr = JSON.parse(legacy) || [];
       if(arr.length){
-        roster=arr;
-        setRosterStatus(`Restored ${roster.length} rows from this browser.`);
+        roster = arr;
+        saveRosterToStorage("", arr);
+        setRosterStatus(`Restored ${roster.length} rows from last session.`);
+        recalcAll();
         return;
       }
     }
     const embedded=document.getElementById("embeddedRoster").value.trim();
-    const rosterText = document.getElementById("rosterText");
-    if(rosterText) rosterText.value=embedded;
-    roster=parseCSV(embedded);
-    setRosterStatus(`Loaded default roster (${roster.length}). Upload/paste to override.`);
-    markRecalc(false);
+    const parsed = parseCSV(embedded);
+    applyRoster(parsed, embedded, `Loaded default roster (${parsed.length}). Upload/paste to override.`);
   }catch(e){}
 })();
 
@@ -1224,14 +1640,6 @@ function updateDiagnostics(){
   systemDiagnostics.textContent = `Diagnostics: roster ${roster.length} rows · last recalc ${recalcText} · affordability ${affordabilityText}`;
 }
 
-function markRecalc(affordabilityDone){
-  lastRecalcAt = new Date();
-  if (typeof affordabilityDone === "boolean") {
-    affordabilityComputed = affordabilityDone;
-  }
-  updateDiagnostics();
-}
-
 function updateSystemStatus(){
   const systemStatusText = document.getElementById("systemStatusText");
   const buildTimeText = document.getElementById("buildTimeText");
@@ -1239,9 +1647,6 @@ function updateSystemStatus(){
   const libStatusPill = document.getElementById("libStatusPill");
   const systemSelf = document.getElementById("systemSelfCheck");
 
-  const missingExports = REQUIRED_SALARY_EXPORTS.filter(
-    (name) => typeof salaryMath[name] !== "function"
-  );
   const coreOk = typeof stepForYear === "function"
     && typeof computeCellValue === "function"
     && typeof computeSalaryAt === "function";
@@ -1263,7 +1668,7 @@ function updateSystemStatus(){
   }
 
   if(systemStatusText){
-    if (!missingExports.length && coreOk && libsOk) {
+    if (coreOk && libsOk) {
       systemStatusText.textContent = "Loaded";
       systemStatusText.classList.add("ok");
       systemStatusText.classList.remove("error");
@@ -1271,13 +1676,7 @@ function updateSystemStatus(){
       systemStatusText.textContent = "ERROR";
       systemStatusText.classList.add("error");
       systemStatusText.classList.remove("ok");
-      if (missingExports.length) {
-        const msg = `salary-math.js missing or out-of-date: ${missingExports.join(", ")}`;
-        console.error(msg);
-        showAppError(msg);
-      } else {
-        showAppError("JavaScript failed to load required modules. Open DevTools → Console for details.");
-      }
+      showAppError("JavaScript failed to load required modules. Open DevTools → Console for details.");
     }
   }
 
@@ -1291,9 +1690,7 @@ function updateSystemStatus(){
   }
 
   if(systemSelf){
-    systemSelf.textContent = missingExports.length
-      ? `Missing exports: ${missingExports.join(", ")}`
-      : selfCheckMessage;
+    systemSelf.textContent = selfCheckMessage;
   }
 
   updateDiagnostics();
@@ -1308,19 +1705,9 @@ function checkBootStatus(){
   const missing = Object.entries(required)
     .filter(([, fn]) => typeof fn !== "function")
     .map(([name]) => name);
-  const missingExports = REQUIRED_SALARY_EXPORTS.filter(
-    (name) => typeof salaryMath[name] !== "function"
-  );
 
   if(missing.length){
     console.error(`Boot check failed. Missing: ${missing.join(", ")}`);
-    console.groupCollapsed("BOOT DIAGNOSTICS");
-    console.log("Missing required functions:", missing);
-    if (missingExports.length) {
-      console.log("Missing SalaryMath exports:", missingExports);
-    }
-    console.log("SalaryMath loaded:", !!window.SalaryMath);
-    console.groupEnd();
     const generateBtn = document.getElementById("generateTableButton");
     const newWindowBtn = document.getElementById("generateTableNewWindow");
     const lookupBtn = document.getElementById("sl_btn");
@@ -1337,8 +1724,18 @@ function initScenarioHandlers(){
   safeAddListener("compareOnGenerate", "change", (e)=>{ e.target.dataset.touched = "1"; });
   safeAddListener("saveScenarioA", "click", ()=>{ scenarios.A = readUIParams(); saveScenarios(); });
   safeAddListener("saveScenarioB", "click", ()=>{ scenarios.B = readUIParams(); saveScenarios(); });
-  safeAddListener("loadScenarioA", "click", ()=>{ if(!scenarios.A){ alert("Scenario A is empty."); return; } writeUIParams(scenarios.A); updateScenarioStatus(); });
-  safeAddListener("loadScenarioB", "click", ()=>{ if(!scenarios.B){ alert("Scenario B is empty."); return; } writeUIParams(scenarios.B); updateScenarioStatus(); });
+  safeAddListener("loadScenarioA", "click", ()=>{
+    if(!scenarios.A){ alert("Scenario A is empty."); return; }
+    writeUIParams(scenarios.A);
+    updateScenarioStatus();
+    recalcAll();
+  });
+  safeAddListener("loadScenarioB", "click", ()=>{
+    if(!scenarios.B){ alert("Scenario B is empty."); return; }
+    writeUIParams(scenarios.B);
+    updateScenarioStatus();
+    recalcAll();
+  });
 }
 
 function initExportHandlers(){
@@ -1500,6 +1897,22 @@ function initLookupHandlers(){
   });
 }
 
+function initRecalcHandlers(){
+  const ids = new Set([
+    "year1","year2","year3","year4","year5",
+    "flat1","flat2","flat3","flat4","flat5",
+    "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
+    "gfBase","gfGrowthPct","adderPct","otherPct",
+    "budget","maxBudgetPct","maxBudgetFlat","stateAidPct","addlRevenue","otherSavings"
+  ]);
+  const handler = (event) => {
+    const target = event.target;
+    if(target && ids.has(target.id)) recalcAll();
+  };
+  document.addEventListener("input", handler);
+  document.addEventListener("change", handler);
+}
+
 function initScenarioStatus(){
   updateScenarioStatus();
 }
@@ -1509,20 +1922,21 @@ function initSystemStatus(){
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  populateContributionSelect();
   initScenarioStatus();
   initSystemStatus();
   initScenarioHandlers();
+  initRecalcHandlers();
 
   const bootOk = checkBootStatus();
   if(bootOk){
-    safeAddListener("generateTableButton", "click", generateTable);
+    safeAddListener("generateTableButton", "click", generateTableInline);
     safeAddListener("generateTableNewWindow", "click", generateTableNewWindow);
     initExportHandlers();
     initLookupHandlers();
   }
 
   loadScenarios();
+  recalcAll();
   window.__APP_BOOTED__ = true;
 });
 
