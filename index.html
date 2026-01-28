@@ -773,11 +773,27 @@ window.addEventListener("unhandledrejection", (e)=>{
   }catch(_){}
 });
 
-setTimeout(() => {
-  if (!window.__APP_BOOTED__) {
-    showAppError("JS did not finish booting. Check DevTools → Console. Common cause: syntax error or missing element id.");
-  }
-}, 1500);
+
+  // Boot watchdog (prevents false "failed to load" messages)
+let __BOOT_WATCHDOG__ = setTimeout(() => {
+  if (window.__APP_BOOTED__) return;
+
+  const sm = window.SalaryMath || {};
+  const hasCoreFns =
+    typeof sm.stepForYear === "function" &&
+    typeof sm.computeCellValue === "function" &&
+    typeof sm.computeSalaryAt === "function";
+
+ if (!hasCoreFns) {
+  showAppError(
+    "salary-math.js did not load (or missing exports). Open DevTools → Network and confirm salary-math.js returns 200."
+  );
+} else {
+  showAppError(
+    "App is taking longer than expected to finish booting. If it finishes after a few seconds, ignore this."
+  );
+}
+}, 6000);
 
 /* ------------------------------ Percent dropdown builder ------------------------------ */
 (function buildPctDropdowns(){
