@@ -43,13 +43,71 @@
       log.innerHTML = "";
     });
 
-    sendBtn?.addEventListener("click", () => {
-      const text = input.value.trim();
-      if (!text) return;
-      appendMessage(text, "user");
-      input.value = "";
-      appendMessage("Bee AI is in demo mode. Ask again once connected.", "bot");
-    });
+   const ASK_URL =
+  window.BEE_AI_ENDPOINT ||
+  "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
+
+const callAskApi = async ({ question, context }) => {
+  const res = await fetch(ASK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, context }),
+  });
+
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Ask API ${res.status}: ${t || res.statusText}`);
+  }
+
+  // Accept either plain text or JSON with common keys
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await res.json();
+    return (
+      data.answer ||
+      data.response ||
+      data.text ||
+      data.message ||
+      JSON.stringify(data)
+    );
+  }
+  return await res.text();
+};
+
+sendBtn?.addEventListener("click", async () => {
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendMessage(text, "user");
+  input.value = "";
+
+  // Optional: include salary table context so AI can answer with real numbers
+  const tables = readRenderedTables();
+  const context = {
+    tables, // may be null if nothing rendered yet
+    page: {
+      url: location.href,
+      premiumType: document.getElementById("netPremiumType")?.value || "family",
+    },
+  };
+
+  // Simple “typing…” line
+  appendMessage("Thinking…", "bot");
+  const lastBubble = log.querySelector(".bee-ai-msg:last-child .bee-ai-bubble");
+
+  try {
+    const answer = await callAskApi({ question: text, context });
+    if (lastBubble) lastBubble.textContent = answer || "(empty response)";
+  } catch (err) {
+    if (lastBubble) {
+      lastBubble.textContent =
+        `Couldn’t reach Bee AI backend.\n` +
+        `Endpoint: ${ASK_URL}\n` +
+        `Error: ${err?.message || err}`;
+    }
+  }
+});
+
 
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
