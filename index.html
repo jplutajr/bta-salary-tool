@@ -533,6 +533,40 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
         <div class="row">
           <button type="button" id="generateTableButton">Generate Salary Table</button>
           <button type="button" id="generateTableNewWindow">Generate (New Window)</button>
+          <button type="button" id="exportSalaryTableAI">Export Salary Table for AI</button>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterHighlight" checked/>
+            Highlight roster cells
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterDetails"/>
+            Show roster names + cell cost
+          </label>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleHideTA"/>
+            Hide TA column
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleCompareY0"/>
+            Compare to Year 0 (Δ line)
+          </label>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleNetPay"/>
+            Show salary after insurance (net)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            Premium type
+            <select id="netPremiumType">
+              <option value="family" selected>Family</option>
+              <option value="individual">Individual</option>
+            </select>
+          </label>
         </div>
         <div class="row">
           <label style="display:flex;gap:8px;align-items:center;font-weight:600">
@@ -799,6 +833,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 <script src="roster.js" defer></script>
 <script src="affordability.js" defer></script>
 <script src="app.js" defer></script>
+<script src="bee-ai.js" defer></script>
 
 </body>
 </html>

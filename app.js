@@ -8,8 +8,22 @@
   const IND_PREM_YEAR = 19599.96;
   const FAM_PREM_YEAR = 43965.48;
 
-  const COLS = ["TA", "BA", "BA10", "BA20", "BA30", "BA40", "BA50", "BA60", "M", "M10", "M20", "M30", "M40", "M50"];
-
+  const COLS = [
+    "TA",
+    "BA",
+    "BA10",
+    "BA20",
+    "BA30",
+    "BA40",
+    "BA50",
+    "BA60",
+    "M",
+    "M10",
+    "M20",
+    "M30",
+    "M40",
+    "M50"
+  ];
   const baseTable = [
     { step: 1, TA: 31297, BA: 52156, BA10: 55028, BA20: 57896, BA30: 60765, BA40: 63634, BA50: 66502, BA60: 69371, M: 66502, M10: 69371, M20: 72239, M30: 75109, M40: 77975, M50: 80846 },
     { step: 2, TA: null, BA: 54767, BA10: 57634, BA20: 60504, BA30: 63372, BA40: 66241, BA50: 69109, BA60: 71980, M: 69109, M10: 71980, M20: 74847, M30: 77714, M40: 80586, M50: 83453 },
@@ -35,7 +49,10 @@
     { step: 22, TA: null, BA: 116315, BA10: 119183, BA20: 122050, BA30: 124919, BA40: 127790, BA50: 130659, BA60: 133527, M: 130659, M10: 133527, M20: 136395, M30: 139264, M40: 142133, M50: 145000 }
   ];
 
-  const money = (value) => Number(value || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const money = (value) => Number(value || 0).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD"
+  });
 
   const setStatus = (msg) => {
     const node = document.getElementById("statusMsg");
@@ -56,7 +73,9 @@
       const start = clamp(a || 0, 0, 5);
       const end = clamp(b || start, 0, 5);
       const out = [];
-      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) out.push(y);
+      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) {
+        out.push(y);
+      }
       return out;
     }
     return raw
@@ -67,10 +86,13 @@
 
   const stepForYear = (baseStep, year) => {
     const sm = SalaryMath();
-    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year);
+    if (typeof sm.stepForYear === "function") {
+      return sm.stepForYear(baseStep, year);
+    }
     const s0 = clamp(baseStep, 1, 22);
     if (year <= 1) return s0;
-    return clamp(s0 + (year - 1), 1, 22);
+    const advanced = s0 + (year - 1);
+    return clamp(advanced, 1, 22);
   };
 
   const getUIParams = () => {
@@ -263,7 +285,6 @@
     }
   };
 
-  // ✅ MUST EXIST (your pasted file was calling these without defining them)
   const showAppError = (msg) => {
     const banner = document.getElementById("appLoadError");
     if (banner) banner.style.display = "block";
@@ -281,7 +302,9 @@
       statusText.classList.toggle("error", status !== "OK");
     }
     const selfCheck = document.getElementById("systemSelfCheck");
-    if (selfCheck && detail) selfCheck.textContent = detail;
+    if (selfCheck && detail) {
+      selfCheck.textContent = detail;
+    }
   };
 
   const checkSalaryEngine = () => {
@@ -384,60 +407,34 @@
       const tbody = document.createElement("tbody");
       for (let step = 1; step <= 22; step += 1) {
         const tr = document.createElement("tr");
-
         const rowHtml = COLS.map((col) => {
           const value = schedules?.[year]?.[step]?.[col];
           const baseValue = schedules?.[0]?.[step]?.[col];
-
           const rosterEntry = rosterMap.get(`${step}|${col}`);
           const hasRoster = Boolean(rosterEntry);
-
           const premiumType = document.getElementById("netPremiumType")?.value || "family";
           const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
           const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
-
           const pct = hiPct?.[hiYearIdx] ?? 0;
-          const sm = SalaryMath();
-
-          const netValue =
-            value == null
-              ? null
-              : typeof sm.computeHealthInsuranceNet === "function"
-                ? sm.computeHealthInsuranceNet(value, pct, premium)
-                : Number((value - premium * pct).toFixed(2));
-
+          const netValue = value == null ? null : Number((value - premium * pct).toFixed(2));
           const deltaValue = value == null || baseValue == null ? null : value - baseValue;
-
           const detailText = hasRoster
-            ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(
-                2
-              )}<br/>Cell total: ${money(rosterEntry.totalCost)}`
+            ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(2)}<br/>Cell total: ${money(rosterEntry.totalCost)}`
             : "";
-
           const tooltip = hasRoster
-            ? `Staff: ${rosterEntry.names.join(", ")}\nTotal FTE: ${rosterEntry.totalFte.toFixed(
-                2
-              )}\nCell total: ${money(rosterEntry.totalCost)}`
+            ? `Staff: ${rosterEntry.names.join(", ")}\nTotal FTE: ${rosterEntry.totalFte.toFixed(2)}\nCell total: ${money(rosterEntry.totalCost)}`
             : "";
-
-          const tooltipAttr = tooltip ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
-
-          const deltaLine = `<div class="delta-line">Δ vs Y0: ${
-            deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)
-          }</div>`;
-
+          const tooltipAttr = tooltip
+            ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+            : "";
+          const deltaLine = `<div class="delta-line">Δ vs Y0: ${deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)}</div>`;
           const netLine = `<div class="net-line">Net (${premiumLabel}): ${netValue == null ? "—" : money(netValue)}</div>`;
-
-          return (
-            `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${
-              tooltipAttr ? `title="${tooltipAttr}"` : ""
-            }>` +
-            `<span class="main">${value == null ? "—" : money(value)}</span>` +
-            deltaLine +
-            netLine +
-            (hasRoster ? `<div class="detail">${detailText}</div>` : "") +
-            `</td>`
-          );
+          return `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>`
+            + `<span class="main">${value == null ? "—" : money(value)}</span>`
+            + deltaLine
+            + netLine
+            + (hasRoster ? `<div class="detail">${detailText}</div>` : "")
+            + "</td>";
         }).join("");
 
         tr.innerHTML = `<td>${step}</td>${rowHtml}`;
