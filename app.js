@@ -1,4 +1,6 @@
 (() => {
+  "use strict";
+
   const SalaryMath = () => window.SalaryMath || {};
 
   const BUILD_VERSION = "v0.5.0";
@@ -6,22 +8,8 @@
   const IND_PREM_YEAR = 19599.96;
   const FAM_PREM_YEAR = 43965.48;
 
-  const COLS = [
-    "TA",
-    "BA",
-    "BA10",
-    "BA20",
-    "BA30",
-    "BA40",
-    "BA50",
-    "BA60",
-    "M",
-    "M10",
-    "M20",
-    "M30",
-    "M40",
-    "M50"
-  ];
+  const COLS = ["TA", "BA", "BA10", "BA20", "BA30", "BA40", "BA50", "BA60", "M", "M10", "M20", "M30", "M40", "M50"];
+
   const baseTable = [
     { step: 1, TA: 31297, BA: 52156, BA10: 55028, BA20: 57896, BA30: 60765, BA40: 63634, BA50: 66502, BA60: 69371, M: 66502, M10: 69371, M20: 72239, M30: 75109, M40: 77975, M50: 80846 },
     { step: 2, TA: null, BA: 54767, BA10: 57634, BA20: 60504, BA30: 63372, BA40: 66241, BA50: 69109, BA60: 71980, M: 69109, M10: 71980, M20: 74847, M30: 77714, M40: 80586, M50: 83453 },
@@ -47,10 +35,7 @@
     { step: 22, TA: null, BA: 116315, BA10: 119183, BA20: 122050, BA30: 124919, BA40: 127790, BA50: 130659, BA60: 133527, M: 130659, M10: 133527, M20: 136395, M30: 139264, M40: 142133, M50: 145000 }
   ];
 
-  const money = (value) => Number(value || 0).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD"
-  });
+  const money = (value) => Number(value || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
   const setStatus = (msg) => {
     const node = document.getElementById("statusMsg");
@@ -71,9 +56,7 @@
       const start = clamp(a || 0, 0, 5);
       const end = clamp(b || start, 0, 5);
       const out = [];
-      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) {
-        out.push(y);
-      }
+      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) out.push(y);
       return out;
     }
     return raw
@@ -84,13 +67,10 @@
 
   const stepForYear = (baseStep, year) => {
     const sm = SalaryMath();
-    if (typeof sm.stepForYear === "function") {
-      return sm.stepForYear(baseStep, year);
-    }
+    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year);
     const s0 = clamp(baseStep, 1, 22);
     if (year <= 1) return s0;
-    const advanced = s0 + (year - 1);
-    return clamp(advanced, 1, 22);
+    return clamp(s0 + (year - 1), 1, 22);
   };
 
   const getUIParams = () => {
@@ -138,6 +118,7 @@
 
   const applyScenarioToUI = (payload) => {
     if (!payload) return;
+
     const setVal = (id, v) => {
       const el = document.getElementById(id);
       if (el) el.value = v;
@@ -185,7 +166,7 @@
     try {
       localStorage.setItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B, JSON.stringify(payload));
       updateScenarioStatus();
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
@@ -195,7 +176,7 @@
       const raw = localStorage.getItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B);
       if (!raw) return null;
       return JSON.parse(raw);
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -232,9 +213,8 @@
         schedules[y][s] = {};
         for (const c of COLS) {
           const prev = schedules[y - 1][s][c];
-          schedules[y][s][c] = prev == null
-            ? null
-            : (prev + (params.yFlat[y] || 0)) * (1 + (params.yPct[y] || 0));
+          schedules[y][s][c] =
+            prev == null ? null : (prev + (params?.yFlat?.[y] || 0)) * (1 + (params?.yPct?.[y] || 0));
         }
       }
     }
@@ -263,7 +243,8 @@
       const sel = document.getElementById(id);
       if (!sel) return;
       sel.innerHTML = options.map((opt) => `<option value="${opt.val}">${opt.label}</option>`).join("");
-      sel.value = "0.0275";
+      // default
+      if (!sel.value) sel.value = "0.0275";
     });
   };
 
@@ -272,9 +253,9 @@
     const libPill = document.getElementById("libStatusPill");
     const xlsxOk = typeof window.XLSX !== "undefined";
     const jsPdfOk = Boolean(window.jspdf?.jsPDF || window.jsPDF);
-    if (diagEl) {
-      diagEl.textContent = `XLSX: ${xlsxOk ? "OK" : "missing"} | jsPDF: ${jsPdfOk ? "OK" : "missing"}`;
-    }
+
+    if (diagEl) diagEl.textContent = `XLSX: ${xlsxOk ? "OK" : "missing"} | jsPDF: ${jsPdfOk ? "OK" : "missing"}`;
+
     if (libPill) {
       libPill.textContent = "libs";
       libPill.classList.toggle("ok", xlsxOk && jsPdfOk);
@@ -282,6 +263,7 @@
     }
   };
 
+  // ✅ MUST EXIST (your pasted file was calling these without defining them)
   const showAppError = (msg) => {
     const banner = document.getElementById("appLoadError");
     if (banner) banner.style.display = "block";
@@ -299,23 +281,23 @@
       statusText.classList.toggle("error", status !== "OK");
     }
     const selfCheck = document.getElementById("systemSelfCheck");
-    if (selfCheck && detail) {
-      selfCheck.textContent = detail;
-    }
+    if (selfCheck && detail) selfCheck.textContent = detail;
   };
 
   const checkSalaryEngine = () => {
     const sm = SalaryMath();
-    const ok = typeof sm.stepForYear === "function"
-      && typeof sm.computeCellValue === "function"
-      && typeof sm.computeSalaryAt === "function";
+    const ok =
+      typeof sm.stepForYear === "function" &&
+      typeof sm.computeCellValue === "function" &&
+      typeof sm.computeSalaryAt === "function";
 
     if (ok) {
       window.__APP_BOOTED__ = true;
+
       const selfCheck = sm.systemSelfCheck || sm.runSelfCheck;
       if (typeof selfCheck === "function") {
         const result = selfCheck();
-        const detail = result.status === "PASS" ? "PASS" : `FAIL (${result.reason || "Unknown"})`;
+        const detail = result?.status === "PASS" ? "PASS" : `FAIL (${result?.reason || "Unknown"})`;
         updateSystemStatus("OK", detail);
       } else {
         updateSystemStatus("OK", "n/a");
@@ -336,12 +318,15 @@
       const col = normScale(entry.Column);
       const salary = salaryAt(schedules, year, stepY, col);
       if (salary == null) return;
+
       const key = `${stepY}|${col}`;
       const item = map.get(key) || { names: [], totalCost: 0, totalFte: 0 };
       item.names.push(entry.Name);
+
       const fte = entry.FTE || 1;
       item.totalCost += salary * fte;
       item.totalFte += fte;
+
       map.set(key, item);
     });
 
@@ -351,6 +336,7 @@
   const updateRosterDisplayFromToggles = () => {
     const renderArea = document.getElementById("renderArea");
     if (!renderArea) return;
+
     const highlightOn = !!document.getElementById("toggleRosterHighlight")?.checked;
     const showDetails = !!document.getElementById("toggleRosterDetails")?.checked;
     const hideTa = !!document.getElementById("toggleHideTA")?.checked;
@@ -361,13 +347,13 @@
     renderArea.classList.toggle("hide-ta", hideTa);
     renderArea.classList.toggle("show-delta", showDelta);
     renderArea.classList.toggle("show-net", showNet);
-    renderArea.querySelectorAll(".detail").forEach((node) => {
-      node.classList.toggle("show", showDetails);
-    });
+
+    renderArea.querySelectorAll(".detail").forEach((node) => node.classList.toggle("show", showDetails));
   };
 
   const renderSalaryTable = (schedules, years, title, hiPct) => {
     const rosterTools = window.BtaRoster;
+
     const wrap = document.createElement("div");
     wrap.className = "card";
     wrap.style.marginBottom = "14px";
@@ -398,41 +384,67 @@
       const tbody = document.createElement("tbody");
       for (let step = 1; step <= 22; step += 1) {
         const tr = document.createElement("tr");
+
         const rowHtml = COLS.map((col) => {
           const value = schedules?.[year]?.[step]?.[col];
           const baseValue = schedules?.[0]?.[step]?.[col];
+
           const rosterEntry = rosterMap.get(`${step}|${col}`);
           const hasRoster = Boolean(rosterEntry);
+
           const premiumType = document.getElementById("netPremiumType")?.value || "family";
           const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
           const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+
           const pct = hiPct?.[hiYearIdx] ?? 0;
-          const netValue = value == null ? null : Number((value - premium * pct).toFixed(2));
+          const sm = SalaryMath();
+
+          const netValue =
+            value == null
+              ? null
+              : typeof sm.computeHealthInsuranceNet === "function"
+                ? sm.computeHealthInsuranceNet(value, pct, premium)
+                : Number((value - premium * pct).toFixed(2));
+
           const deltaValue = value == null || baseValue == null ? null : value - baseValue;
+
           const detailText = hasRoster
-            ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(2)}<br/>Cell total: ${money(rosterEntry.totalCost)}`
+            ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(
+                2
+              )}<br/>Cell total: ${money(rosterEntry.totalCost)}`
             : "";
+
           const tooltip = hasRoster
-            ? `Staff: ${rosterEntry.names.join(", ")}\nTotal FTE: ${rosterEntry.totalFte.toFixed(2)}\nCell total: ${money(rosterEntry.totalCost)}`
+            ? `Staff: ${rosterEntry.names.join(", ")}\nTotal FTE: ${rosterEntry.totalFte.toFixed(
+                2
+              )}\nCell total: ${money(rosterEntry.totalCost)}`
             : "";
-          const tooltipAttr = tooltip
-            ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
-            : "";
-          const deltaLine = `<div class="delta-line">Δ vs Y0: ${deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)}</div>`;
+
+          const tooltipAttr = tooltip ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
+
+          const deltaLine = `<div class="delta-line">Δ vs Y0: ${
+            deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)
+          }</div>`;
+
           const netLine = `<div class="net-line">Net (${premiumLabel}): ${netValue == null ? "—" : money(netValue)}</div>`;
-          return `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>`
-            + `<span class="main">${value == null ? "—" : money(value)}</span>`
-            + deltaLine
-            + netLine
-            + (hasRoster ? `<div class="detail">${detailText}</div>` : "")
-            + "</td>";
+
+          return (
+            `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${
+              tooltipAttr ? `title="${tooltipAttr}"` : ""
+            }>` +
+            `<span class="main">${value == null ? "—" : money(value)}</span>` +
+            deltaLine +
+            netLine +
+            (hasRoster ? `<div class="detail">${detailText}</div>` : "") +
+            `</td>`
+          );
         }).join("");
 
         tr.innerHTML = `<td>${step}</td>${rowHtml}`;
         tbody.appendChild(tr);
       }
-      table.appendChild(tbody);
 
+      table.appendChild(tbody);
       tableContainer.appendChild(table);
       wrap.appendChild(tableContainer);
     });
@@ -479,27 +491,30 @@
 
     blocks.forEach((block) => renderArea.appendChild(block));
 
-    if (window.BtaAffordability?.computeAffordability) {
-      window.BtaAffordability.computeAffordability();
-    }
-
+    window.BtaAffordability?.computeAffordability?.();
     updateRosterDisplayFromToggles();
 
     if (mode === "newWindow") {
       const w = window.open("", "_blank");
       if (!w) return;
+
       const highlightOn = !!document.getElementById("toggleRosterHighlight")?.checked;
       const hideTa = !!document.getElementById("toggleHideTA")?.checked;
       const showDelta = !!document.getElementById("toggleCompareY0")?.checked;
       const showNet = !!document.getElementById("toggleNetPay")?.checked;
+
       const wrapperClass = [
         highlightOn ? "" : "roster-highlight-off",
         hideTa ? "hide-ta" : "",
         showDelta ? "show-delta" : "",
         showNet ? "show-net" : ""
-      ].filter(Boolean).join(" ");
+      ]
+        .filter(Boolean)
+        .join(" ");
+
       const recurringBanner = document.getElementById("affordabilitySummaryRecurring")?.outerHTML || "";
       const cashBanner = document.getElementById("affordabilitySummaryCash")?.outerHTML || "";
+
       const html = `
         <!doctype html><html><head><meta charset="utf-8"/>
         <title>BTA Salary Table</title>
@@ -553,12 +568,14 @@
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
     safeAddListener("saveScenarioB", "click", () => saveScenario("B"));
+
     safeAddListener("loadScenarioA", "click", () => {
       const s = loadScenario("A");
       if (!s) return;
       applyScenarioToUI(s);
       window.BtaAffordability?.computeAffordability?.();
     });
+
     safeAddListener("loadScenarioB", "click", () => {
       const s = loadScenario("B");
       if (!s) return;
@@ -566,15 +583,19 @@
       window.BtaAffordability?.computeAffordability?.();
     });
 
+    // Salary Lookup
     safeAddListener("sl_btn", "click", () => {
       const rosterTools = window.BtaRoster;
       const normScale = rosterTools?.normScale || ((value) => value);
+
       const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
       const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
       const col = normScale(document.getElementById("sl_scale")?.value || "M50");
+
       const scenario = document.getElementById("sl_scenario")?.value || "ui";
       const showHi = (document.getElementById("sl_show_hi")?.value || "yes") === "yes";
       const hiYearIdx = Math.max(1, year);
+
       const premiumType = document.getElementById("netPremiumType")?.value || "family";
       const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
       const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
@@ -584,11 +605,14 @@
         const gross = salaryAt(schedules, year, effectiveStep, col);
         if (gross == null) return `${label}: —`;
         if (!showHi) return `${label}: ${money(gross)}`;
+
         const sm = SalaryMath();
         const pct = hiPct?.[hiYearIdx] ?? 0;
-        const net = typeof sm.computeHealthInsuranceNet === "function"
-          ? sm.computeHealthInsuranceNet(gross, pct, premiumValue)
-          : Number((gross - premiumValue * pct).toFixed(2));
+        const net =
+          typeof sm.computeHealthInsuranceNet === "function"
+            ? sm.computeHealthInsuranceNet(gross, pct, premiumValue)
+            : Number((gross - premiumValue * pct).toFixed(2));
+
         return `${label}: Gross ${money(gross)} | Net (${premiumLabel} premium): ${money(net)}`;
       };
 
@@ -598,36 +622,34 @@
 
       if (scenario === "A" || scenario === "both") {
         const sA = loadScenario("A");
-        if (sA) {
-          output.push(doOne("Scenario A", buildSchedules({ yPct: sA.yPct, yFlat: sA.yFlat, hiPct: sA.hiPct }), sA.hiPct));
-        } else {
-          output.push("Scenario A: (not saved)");
-        }
+        if (sA) output.push(doOne("Scenario A", buildSchedules(sA), sA.hiPct));
+        else output.push("Scenario A: (not saved)");
       }
+
       if (scenario === "B" || scenario === "both") {
         const sB = loadScenario("B");
-        if (sB) {
-          output.push(doOne("Scenario B", buildSchedules({ yPct: sB.yPct, yFlat: sB.yFlat, hiPct: sB.hiPct }), sB.hiPct));
-        } else {
-          output.push("Scenario B: (not saved)");
-        }
+        if (sB) output.push(doOne("Scenario B", buildSchedules(sB), sB.hiPct));
+        else output.push("Scenario B: (not saved)");
       }
-      if (scenario === "ui") {
-        output.push(doOne("Current UI", schedulesUI, paramsUI.hiPct));
-      }
+
+      if (scenario === "ui") output.push(doOne("Current UI", schedulesUI, paramsUI.hiPct));
 
       const el = document.getElementById("sl_out");
       if (el) el.textContent = output.join("\n").trim();
     });
 
+    // Salary Explain
     safeAddListener("sl_explain_btn", "click", () => {
       const rosterTools = window.BtaRoster;
       const normScale = rosterTools?.normScale || ((value) => value);
+
       const sm = SalaryMath();
       if (typeof sm.explainSalaryAt !== "function") return;
+
       const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
       const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
       const col = normScale(document.getElementById("sl_scale")?.value || "M50");
+
       const params = getUIParams();
       const scenario = document.getElementById("sl_scenario")?.value || "ui";
 
@@ -655,8 +677,12 @@
         `Start step: ${explanation.startStep}`,
         `Column: ${explanation.column}`,
         explanation.stepReason || "",
-        explanation.flatAdds?.length ? `Flat adds: ${explanation.flatAdds.map((f) => `Y${f.year}: $${f.amount}`).join(", ")}` : "Flat adds: none",
-        explanation.pctIncreases?.length ? `Percent adds: ${explanation.pctIncreases.map((p) => `Y${p.year}: ${p.rate}%`).join(", ")}` : "Percent adds: none",
+        explanation.flatAdds?.length
+          ? `Flat adds: ${explanation.flatAdds.map((f) => `Y${f.year}: $${f.amount}`).join(", ")}`
+          : "Flat adds: none",
+        explanation.pctIncreases?.length
+          ? `Percent adds: ${explanation.pctIncreases.map((p) => `Y${p.year}: ${p.rate}%`).join(", ")}`
+          : "Percent adds: none",
         `Final salary: ${money(explanation.finalSalary)}`
       ].filter(Boolean);
 
@@ -664,17 +690,19 @@
       if (el) el.textContent = lines.join("\n");
     });
 
+    // Toggles
     safeAddListener("toggleRosterHighlight", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleRosterDetails", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleHideTA", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
+
+    // Premium type impacts net pay lines (re-render if a table exists)
     safeAddListener("netPremiumType", "change", () => {
-      if (document.getElementById("renderArea")?.children?.length) {
-        generateSalaryTable({ mode: "inline" });
-      }
+      if (document.getElementById("renderArea")?.children?.length) generateSalaryTable({ mode: "inline" });
     });
 
+    // ✅ Affordability should recalc when any of these change
     const watchIds = [
       "year1",
       "year2",
@@ -686,6 +714,11 @@
       "flat3",
       "flat4",
       "flat5",
+      "contributionY1",
+      "contributionY2",
+      "contributionY3",
+      "contributionY4",
+      "contributionY5",
       "adderPct",
       "otherPct",
       "budget",
@@ -697,8 +730,10 @@
       "recurringSurplus",
       "oneTimeFund",
       "reallocPct",
-      "oneTimeMode"
+      "oneTimeMode",
+      "netPremiumType"
     ];
+
     watchIds.forEach((id) => {
       safeAddListener(id, "change", () => window.BtaAffordability?.computeAffordability?.());
       safeAddListener(id, "input", () => window.BtaAffordability?.computeAffordability?.());
@@ -708,6 +743,7 @@
   const initDiagnostics = () => {
     const buildTimeEl = document.getElementById("buildTimeText");
     if (buildTimeEl) buildTimeEl.textContent = BUILD_TIME;
+
     const buildVersionEl = document.getElementById("buildVersionText");
     if (buildVersionEl) buildVersionEl.textContent = `version: ${BUILD_VERSION}`;
   };
@@ -718,16 +754,17 @@
         const msg = e?.error?.stack || e?.message || "Unknown JS error";
         showAppError(msg);
         updateSystemStatus("ERROR", "FAIL");
-      } catch (err) {
+      } catch {
         // ignore
       }
     });
+
     window.addEventListener("unhandledrejection", (e) => {
       try {
         const msg = e?.reason?.stack || String(e?.reason || "Unhandled promise rejection");
         showAppError(msg);
         updateSystemStatus("ERROR", "FAIL");
-      } catch (err) {
+      } catch {
         // ignore
       }
     });
@@ -737,25 +774,27 @@
     window.__APP_BOOTED__ = false;
     setTimeout(() => {
       if (window.__APP_BOOTED__) return;
+
       const sm = SalaryMath();
-      const hasCoreFns = typeof sm.stepForYear === "function"
-        && typeof sm.computeCellValue === "function"
-        && typeof sm.computeSalaryAt === "function";
+      const hasCoreFns =
+        typeof sm.stepForYear === "function" &&
+        typeof sm.computeCellValue === "function" &&
+        typeof sm.computeSalaryAt === "function";
+
       if (!hasCoreFns) {
         showAppError(
           "salary-math.js did not load (or missing exports). Open DevTools → Network and confirm salary-math.js returns 200."
         );
         updateSystemStatus("ERROR", "FAIL (engine missing)");
       } else {
-        showAppError(
-          "App is taking longer than expected to finish booting. If it finishes after a few seconds, ignore this."
-        );
+        showAppError("App is taking longer than expected to finish booting. If it finishes after a few seconds, ignore this.");
       }
     }, 6000);
   };
 
   document.addEventListener("DOMContentLoaded", () => {
     window.baseTable = baseTable;
+
     window.BtaApp = {
       COLS,
       baseTable,
