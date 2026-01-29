@@ -104,6 +104,10 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 
   .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15;word-break:break-word}
   .detail.show{display:block}
+  .delta-line,.net-line{display:none;margin-top:2px;font-size:.78rem;color:#475569}
+  .show-delta .delta-line{display:block}
+  .show-net .net-line{display:block}
+  .hide-ta th[data-col="TA"], .hide-ta td[data-col="TA"]{display:none}
   .ok{color:var(--green)}
   .error{color:var(--red)}
   .bad{color:var(--red)}
@@ -248,7 +252,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
-  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
+  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2026 annual premiums.</p>
   <div id="appLoadError" class="app-error" style="display:none;">
     <div class="app-error-title">App failed to load</div>
     <div id="appLoadErrorMsg" class="app-error-msg">
@@ -472,7 +476,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
             <option value="25">25%</option>
           </select>
         </div>
-        <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
+        <div class="hint">2026 annual premiums (used in net salary view): Individual <strong>$19,599.96/yr</strong>, Family <strong>$43,965.48/yr</strong>.</div>
       </fieldset>
 
       <fieldset>
@@ -540,6 +544,32 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
             Show roster names + cell cost
           </label>
         </div>
+<div class="row">
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleHideTA" />
+    Hide TA column
+  </label>
+
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleCompareY0" />
+    Compare to Year 0 (Δ line)
+  </label>
+</div>
+
+<div class="row">
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleNetPay" />
+    Show salary after insurance (net)
+  </label>
+
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    Premium type
+    <select id="netPremiumType">
+      <option value="family" selected>Family</option>
+      <option value="individual">Individual</option>
+    </select>
+  </label>
+</div>
       </fieldset>
 
       <fieldset>
@@ -591,8 +621,25 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
         <div class="form-group"><label>Other Savings/Costs ($/yr)</label>
           <input type="number" id="otherSavings" value="0" step="1"/>
         </div>
-        <div id="affordabilitySummary" class="banner" style="display:none"></div>
-        <div id="affordabilityError" class="banner fail" style="display:none"></div>
+        <div class="form-group"><label>Recurring Surplus / Underbudget Amount ($/yr)</label>
+          <input type="number" id="recurringSurplus" value="1700000" step="1"/>
+        </div>
+        <div class="form-group"><label>One-Time Fund Balance Available ($)</label>
+          <input type="number" id="oneTimeFund" value="0" step="1"/>
+        </div>
+        <div class="form-group"><label>Max % of Other Obligations Reallocatable</label>
+          <input type="number" id="reallocPct" value="0" step="0.1"/>
+        </div>
+        <div class="form-group"><label>Apply one-time across</label>
+          <select id="oneTimeMode">
+            <option value="y1" selected>Year 1 only</option>
+            <option value="spread">Spread evenly Y1–Y5</option>
+          </select>
+        </div>
+        <div class="soft">One-time fund balance can cover a gap temporarily but does not make recurring costs sustainable.</div>
+        <div class="soft">NY context: Districts often track unassigned fund balance (RPTL 1318 4% concept) and may use reserves/appropriated fund balance/transfers per local actions. (General info, not legal advice.)</div>
+        <div id="affordabilitySummaryRecurring" class="banner" style="display:none"></div>
+        <div id="affordabilitySummaryCash" class="banner" style="display:none"></div>
         <div class="table-container">
           <table id="affordabilityTable">
             <thead>
@@ -601,10 +648,11 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
                 <th>Contract Payroll</th>
                 <th>Baseline Payroll</th>
                 <th>Incremental Contract Cost</th>
-                <th>Revenue/Savings Offsets</th>
-                <th>Net Impact</th>
+                <th>Recurring Offsets</th>
+                <th>Net Impact (Recurring)</th>
                 <th>Allowable New Spend</th>
-                <th>Result</th>
+                <th>Recurring Affordability</th>
+                <th>Cash Coverage (with one-time)</th>
               </tr>
             </thead>
             <tbody id="affordabilityTableBody"></tbody>
