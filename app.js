@@ -1,6 +1,4 @@
 (() => {
-  "use strict";
-
   const SalaryMath = () => window.SalaryMath || {};
 
   const BUILD_VERSION = "v0.5.0";
@@ -376,7 +374,6 @@
 
   const renderSalaryTable = (schedules, years, title, hiPct) => {
     const rosterTools = window.BtaRoster;
-
     const wrap = document.createElement("div");
     wrap.className = "card";
     wrap.style.marginBottom = "14px";
@@ -505,13 +502,9 @@
         hideTa ? "hide-ta" : "",
         showDelta ? "show-delta" : "",
         showNet ? "show-net" : ""
-      ]
-        .filter(Boolean)
-        .join(" ");
-
+      ].filter(Boolean).join(" ");
       const recurringBanner = document.getElementById("affordabilitySummaryRecurring")?.outerHTML || "";
       const cashBanner = document.getElementById("affordabilitySummaryCash")?.outerHTML || "";
-
       const html = `
         <!doctype html><html><head><meta charset="utf-8"/>
         <title>BTA Salary Table</title>
@@ -711,11 +704,6 @@
       "flat3",
       "flat4",
       "flat5",
-      "contributionY1",
-      "contributionY2",
-      "contributionY3",
-      "contributionY4",
-      "contributionY5",
       "adderPct",
       "otherPct",
       "budget",
@@ -740,7 +728,6 @@
   const initDiagnostics = () => {
     const buildTimeEl = document.getElementById("buildTimeText");
     if (buildTimeEl) buildTimeEl.textContent = BUILD_TIME;
-
     const buildVersionEl = document.getElementById("buildVersionText");
     if (buildVersionEl) buildVersionEl.textContent = `version: ${BUILD_VERSION}`;
   };
@@ -761,7 +748,7 @@
         const msg = e?.reason?.stack || String(e?.reason || "Unhandled promise rejection");
         showAppError(msg);
         updateSystemStatus("ERROR", "FAIL");
-      } catch {
+      } catch (err) {
         // ignore
       }
     });
