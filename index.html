@@ -104,6 +104,10 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 
   .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15;word-break:break-word}
   .detail.show{display:block}
+  .delta-line,.net-line{display:none;margin-top:2px;font-size:.78rem;color:#475569}
+  .show-delta .delta-line{display:block}
+  .show-net .net-line{display:block}
+  .hide-ta th[data-col="TA"], .hide-ta td[data-col="TA"]{display:none}
   .ok{color:var(--green)}
   .error{color:var(--red)}
   .bad{color:var(--red)}
@@ -132,6 +136,8 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   /* Gold shading for cells that have roster staff */
   .cell-has-roster{ background:#facc15 !important; }
   .cell-has-roster .main{ color:#78350f; }
+  .roster-highlight-off .cell-has-roster{ background:inherit !important; }
+  .roster-highlight-off .cell-has-roster .main{ color:inherit; }
 
   /* Compare layout */
   .compare-wrap{
@@ -246,7 +252,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
-  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2025 premiums.</p>
+  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2026 annual premiums.</p>
   <div id="appLoadError" class="app-error" style="display:none;">
     <div class="app-error-title">App failed to load</div>
     <div id="appLoadErrorMsg" class="app-error-msg">
@@ -263,7 +269,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
       <div class="sys-title">System Status</div>
       <div class="sys-small" id="systemStatusText">Checking…</div>
       <div class="sys-small">Self-check: <span id="systemSelfCheck">n/a</span></div>
-      <div class="sys-small" id="systemDiagnostics">Diagnostics: n/a</div>
+      <div class="sys-small">DEV diagnostics: <span id="systemDiagnostics">n/a</span></div>
     </div>
     <div class="sys-left" style="align-items:flex-end;text-align:right">
       <div class="sys-small">Build</div>
@@ -470,7 +476,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
             <option value="25">25%</option>
           </select>
         </div>
-        <div class="hint">2025 premiums: Individual <strong>$1,479.53/mo</strong>, Family <strong>$3,367.80/mo</strong>.</div>
+        <div class="hint">2026 annual premiums (used in net salary view): Individual <strong>$19,599.96/yr</strong>, Family <strong>$43,965.48/yr</strong>.</div>
       </fieldset>
 
       <fieldset>
@@ -527,6 +533,40 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
         <div class="row">
           <button type="button" id="generateTableButton">Generate Salary Table</button>
           <button type="button" id="generateTableNewWindow">Generate (New Window)</button>
+          <button type="button" id="exportSalaryTableAI">Export Salary Table for AI</button>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterHighlight" checked/>
+            Highlight roster cells
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterDetails"/>
+            Show roster names + cell cost
+          </label>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleHideTA"/>
+            Hide TA column
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleCompareY0"/>
+            Compare to Year 0 (Δ line)
+          </label>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleNetPay"/>
+            Show salary after insurance (net)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            Premium type
+            <select id="netPremiumType">
+              <option value="family" selected>Family</option>
+              <option value="individual">Individual</option>
+            </select>
+          </label>
         </div>
       </fieldset>
 
@@ -579,8 +619,25 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
         <div class="form-group"><label>Other Savings/Costs ($/yr)</label>
           <input type="number" id="otherSavings" value="0" step="1"/>
         </div>
-        <div id="affordabilitySummary" class="banner" style="display:none"></div>
-        <div id="affordabilityError" class="banner fail" style="display:none"></div>
+        <div class="form-group"><label>Recurring Surplus / Underbudget Amount ($/yr)</label>
+          <input type="number" id="recurringSurplus" value="1700000" step="1"/>
+        </div>
+        <div class="form-group"><label>One-Time Fund Balance Available ($)</label>
+          <input type="number" id="oneTimeFund" value="0" step="1"/>
+        </div>
+        <div class="form-group"><label>Max % of Other Obligations Reallocatable</label>
+          <input type="number" id="reallocPct" value="0" step="0.1"/>
+        </div>
+        <div class="form-group"><label>Apply one-time across</label>
+          <select id="oneTimeMode">
+            <option value="y1" selected>Year 1 only</option>
+            <option value="spread">Spread evenly Y1–Y5</option>
+          </select>
+        </div>
+        <div class="soft">One-time fund balance can cover a gap temporarily but does not make recurring costs sustainable.</div>
+        <div class="soft">NY context: Districts often track unassigned fund balance (RPTL 1318 4% concept) and may use reserves/appropriated fund balance/transfers per local actions. (General info, not legal advice.)</div>
+        <div id="affordabilitySummaryRecurring" class="banner" style="display:none"></div>
+        <div id="affordabilitySummaryCash" class="banner" style="display:none"></div>
         <div class="table-container">
           <table id="affordabilityTable">
             <thead>
@@ -589,10 +646,11 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
                 <th>Contract Payroll</th>
                 <th>Baseline Payroll</th>
                 <th>Incremental Contract Cost</th>
-                <th>Revenue/Savings Offsets</th>
-                <th>Net Impact</th>
+                <th>Recurring Offsets</th>
+                <th>Net Impact (Recurring)</th>
                 <th>Allowable New Spend</th>
-                <th>Result</th>
+                <th>Recurring Affordability</th>
+                <th>Cash Coverage (with one-time)</th>
               </tr>
             </thead>
             <tbody id="affordabilityTableBody"></tbody>
@@ -735,1000 +793,14 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-01-20-1"></script>
+<script src="salary-math.js?v=2026-01-20-1" defer></script>
+<script src="roster.js" defer></script>
+<script src="affordability.js" defer></script>
+<script src="app.js" defer></script>
 <script>
-/* ======== ENTIRE ORIGINAL SCRIPT UNCHANGED BELOW THIS LINE ======== */
-const SalaryMath = () => window.SalaryMath || {};
-const BUILD_VERSION = "v0.4.0";
-const BUILD_TIME = new Date().toLocaleString();
-window.__APP_BOOTED__ = false;
-  // Mark app as booted once SalaryMath is actually ready
-(function waitForSalaryMath(){
-  const sm = SalaryMath();
-  const ok =
-    typeof sm.stepForYear === "function" &&
-    typeof sm.computeCellValue === "function" &&
-    typeof sm.computeSalaryAt === "function";
-
-  if (ok) {
-    window.__APP_BOOTED__ = true;
-
-    const systemStatusText = document.getElementById("systemStatusText");
-    if (systemStatusText) {
-      systemStatusText.textContent = "OK";
-      systemStatusText.classList.add("ok");
-      systemStatusText.classList.remove("error");
-    }
-  } else {
-    // retry until salary-math.js finishes loading
-    setTimeout(waitForSalaryMath, 50);
-  }
-})();
-
-const safeAddListener = (id, event, handler) => {
-  const el = document.getElementById(id);
-  if (el) el.addEventListener(event, handler);
-};
-
-function showAppError(msg){
-  const banner = document.getElementById("appLoadError");
-  if (banner) banner.style.display = "block";
-  const msgEl = document.getElementById("appLoadErrorMsg");
-  if (msgEl && msg) msgEl.textContent = msg;
-  const retryBtn = document.getElementById("retryBtn");
-  if (retryBtn) retryBtn.addEventListener("click", ()=> location.reload());
-}
-
-window.addEventListener("error", (e)=>{
-  try{
-    const msg = e?.error?.stack || e?.message || "Unknown JS error";
-    showAppError(msg);
-    const systemStatusText = document.getElementById("systemStatusText");
-    if(systemStatusText){
-      systemStatusText.textContent = "ERROR";
-      systemStatusText.classList.add("error");
-      systemStatusText.classList.remove("ok");
-    }
-  }catch(_){}
-});
-window.addEventListener("unhandledrejection", (e)=>{
-  try{
-    const msg = e?.reason?.stack || String(e?.reason || "Unhandled promise rejection");
-    showAppError(msg);
-    const systemStatusText = document.getElementById("systemStatusText");
-    if(systemStatusText){
-      systemStatusText.textContent = "ERROR";
-      systemStatusText.classList.add("error");
-      systemStatusText.classList.remove("ok");
-    }
-  }catch(_){}
-});
-
-  // Boot watchdog (prevents false "failed to load" messages)
-let __BOOT_WATCHDOG__ = setTimeout(() => {
-  if (window.__APP_BOOTED__) return;
-
-  const sm = SalaryMath();
-  const hasCoreFns =
-    typeof sm.stepForYear === "function" &&
-    typeof sm.computeCellValue === "function" &&
-    typeof sm.computeSalaryAt === "function";
-
- if (!hasCoreFns) {
-  showAppError(
-    "salary-math.js did not load (or missing exports). Open DevTools → Network and confirm salary-math.js returns 200."
-  );
-} else {
-  showAppError(
-    "App is taking longer than expected to finish booting. If it finishes after a few seconds, ignore this."
-  );
-}
-}, 6000);
-
-/* ------------------------------ Percent dropdown builder ------------------------------ */
-(function buildPctDropdowns(){
-  const ids = ["year1","year2","year3","year4","year5"];
-  const options = [];
-  for(let p=0.50; p<=3.50+1e-9; p+=0.25){
-    const val = (p/100).toFixed(4);
-    const label = p.toFixed(2).replace(/\.00$/,"") + "%";
-    options.push({val, label});
-  }
-  ids.forEach((id)=>{
-    const sel = document.getElementById(id);
-    if(!sel) return;
-    sel.innerHTML = options.map(o=>`<option value="${o.val}">${o.label}</option>`).join("");
-    sel.value = "0.0275";
-  });
-})();
-
-/* ------------------------------ Constants ------------------------------ */
-const IND_PREM_MONTH = 1479.53, FAM_PREM_MONTH = 3367.80;
-const IND_PREM_YEAR  = IND_PREM_MONTH*12, FAM_PREM_YEAR = FAM_PREM_MONTH*12;
-const money = v => (+v).toLocaleString("en-US",{style:"currency",currency:"USD"});
-const setStatus = msg => { const n=document.getElementById("statusMsg"); if(n) n.textContent=msg||""; };
-
-/* ------------------------------ CSV utils ------------------------------ */
-function _tryParse(csvStr, delim){
-  const s = csvStr.replace(/\uFEFF/g,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
-  const rows=[]; let row=[], field="", inQ=false;
-  for(let i=0;i<s.length;i++){
-    const c=s[i];
-    if(c==='"'){ if(inQ && s[i+1]==='"'){field+='"';i++;} else {inQ=!inQ;} }
-    else if(c===delim && !inQ){ row.push(field); field=""; }
-    else if(c==='\n' && !inQ){ row.push(field); field=""; if(row.some(x=>x.trim()!=='')) rows.push(row); row=[]; }
-    else { field+=c; }
-  }
-  if(field.length||row.length){ row.push(field); if(row.some(x=>x.trim()!=='')) rows.push(row); }
-  return rows;
-}
-function parseCSV(csvStr){
-  if(!csvStr) return [];
-  const candidates = [',',';','\t'];
-  let rows=_tryParse(csvStr, ',');
-  for(const d of candidates){ const r=_tryParse(csvStr,d); if((r?.[0]||[]).length >= (rows?.[0]||[]).length) rows=r; }
-  if(!rows || !rows.length) return [];
-  const header=rows[0].map(h=>String(h||"").trim());
-  const findIdx = (names)=> header.findIndex(h => names.some(n => new RegExp("^"+n+"$","i").test(h))) >= 0 ?
-    header.findIndex(h => names.some(n => new RegExp("^"+n+"$","i").test(h))) :
-    header.findIndex(h => names.some(n => h.toLowerCase().includes(n.toLowerCase())));
-  const idxName   = findIdx(["name","employee name","employee","full name"]);
-  const idxStep   = findIdx(["step","salary step","current step"]);
-  const idxColumn = findIdx(["column","lane","degree","scale"]);
-  const idxFTE    = findIdx(["fte","percent","pct","fte %","fte pct"]);
-  const out=[];
-  for(let r=1;r<rows.length;r++){
-    const c=rows[r];
-    const Name=(idxName>=0?c[idxName]:"").toString().trim(); if(!Name) continue;
-    const StepS=(idxStep>=0?c[idxStep]:"").toString().trim();
-    const m=StepS.match(/(\d{1,2})/);
-    let Step=m?Math.max(1,Math.min(parseInt(m[1],10),22)):null; if(!Step) continue;
-    const ColumnRaw=(idxColumn>=0?c[idxColumn]:"").toString().trim();
-    const Column=normScale(ColumnRaw);
-    let FTEs=(idxFTE>=0?c[idxFTE]:"1").toString().trim();
-    let FTE=1; if(/%$/.test(FTEs)) FTE=parseFloat(FTEs)/100; else if(!isNaN(parseFloat(FTEs))) FTE=parseFloat(FTEs);
-    if(!(FTE>0)) FTE=1;
-    out.push({Name,Step,Column,FTE});
-  }
-  return out;
-}
-function normScale(s){
-  if(!s) return "";
-  s = String(s).toUpperCase().replace(/\s+/g,"").replace(/\./g,"");
-  const map = {
-    "M+50":"M50","M+40":"M40","M+30":"M30","M+20":"M20","M+10":"M10",
-    "MA+50":"M50","MA+40":"M40","MA+30":"M30","MA+20":"M20","MA+10":"M10",
-    "MA50":"M50","MA40":"M40","MA30":"M30","MA20":"M20","MA10":"M10","MA":"M","MS":"M","M":"M",
-    "BA+50":"BA50","BA+40":"BA40","BA+30":"BA30","BA+20":"BA20","BA+10":"BA10",
-    "B+50":"BA50","B+40":"BA40","B+30":"BA30","B+20":"BA20","B+10":"BA10",
-    "B50":"BA50","B40":"BA40","B30":"BA30","B20":"BA20","B10":"BA10",
-    "BACHELORS":"BA","BACHELOR":"BA","B.A.":"BA","M.A.":"M"
-  };
-  if(map[s]) return map[s];
-  let m;
-  if((m=s.match(/^M\D*(\d+)$/))) return "M"+m[1];
-  if((m=s.match(/^BA\D*(\d+)$/))) return "BA"+m[1];
-  return s;
-}
-
-/* ------------------------------ Base table (1–22) ------------------------------ */
-const COLS = ["TA","BA","BA10","BA20","BA30","BA40","BA50","BA60","M","M10","M20","M30","M40","M50"];
-const baseTable = [
-  {step:1,TA:31297, BA:52156, BA10:55028, BA20:57896, BA30:60765, BA40:63634, BA50:66502, BA60:69371,  M:66502,  M10:69371, M20:72239, M30:75109, M40:77975, M50:80846},
-  {step:2,TA:null, BA:54767, BA10:57634, BA20:60504, BA30:63372, BA40:66241, BA50:69109, BA60:71980,  M:69109,  M10:71980, M20:74847, M30:77714, M40:80586, M50:83453},
-  {step:3,TA:null, BA:57373, BA10:60243, BA20:63112, BA30:65979, BA40:68850, BA50:71716, BA60:74587,  M:71716,  M10:74587, M20:77457, M30:80324, M40:83194, M50:86062},
-  {step:4,TA:null, BA:60243, BA10:63112, BA20:65979, BA30:68850, BA40:71716, BA50:74587, BA60:77457,  M:74587,  M10:77457, M20:80324, M30:83194, M40:86062, M50:88933},
-  {step:5,TA:null, BA:63112, BA10:65979, BA20:68850, BA30:71716, BA40:74587, BA50:77457, BA60:80324,  M:77457,  M10:80324, M20:83194, M30:86062, M40:88933, M50:91799},
-  {step:6,TA:null, BA:66241, BA10:69109, BA20:71980, BA30:74847, BA40:77714, BA50:80586, BA60:83453,  M:80586,  M10:83453, M20:86324, M30:89192, M40:92059, M50:94927},
-  {step:7,TA:null, BA:69371, BA10:72239, BA20:75109, BA30:77975, BA40:80846, BA50:83716, BA60:86584,  M:83716,  M10:86584, M20:89453, M30:92320, M40:95189, M50:98059},
-  {step:8,TA:null, BA:72503, BA10:75369, BA20:78238, BA30:81106, BA40:83976, BA50:86845, BA60:89712,  M:86845,  M10:89712, M20:92584, M30:95450, M40:98318, M50:101187},
-  {step:9,TA:null, BA:75630, BA10:78500, BA20:81369, BA30:84238, BA40:87104, BA50:89974, BA60:92843,  M:89974,  M10:92843, M20:95713, M30:98579, M40:101449, M50:104317},
-  {step:10,TA:null,BA:78761, BA10:81629, BA20:84497, BA30:87365, BA40:90236, BA50:93105, BA60:95973, M:93105, M10:95973, M20:98841, M30:101709, M40:104578, M50:107447},
-  {step:11,TA:null,BA:81890, BA10:84756, BA20:87629, BA30:90495, BA40:93362, BA50:96233, BA60:99101, M:96233, M10:99101, M20:101972, M30:104840, M40:107708, M50:110576},
-  {step:12,TA:null,BA:85019, BA10:87889, BA20:90757, BA30:93625, BA40:96492, BA50:99363, BA60:102230, M:99363, M10:102230, M20:105099, M30:107968, M40:110836, M50:113706},
-  {step:13,TA:null,BA:88149, BA10:91017, BA20:93885, BA30:96754, BA40:99623, BA50:102492, BA60:105360, M:102492, M10:105360, M20:108229, M30:111098, M40:113965, M50:116836},
-  {step:14,TA:null,BA:91279, BA10:94148, BA20:97016, BA30:99882, BA40:102752, BA50:105621, BA60:108490, M:105621, M10:108490, M20:111360, M30:114228, M40:117095, M50:119964},
-  {step:15,TA:null,BA:94407, BA10:97277, BA20:100145, BA30:103014, BA40:105882, BA50:108752, BA60:111620, M:108752, M10:111620, M20:114488, M30:117357, M40:120225, M50:123095},
-  {step:16,TA:null,BA:97537, BA10:100406, BA20:103274, BA30:106143, BA40:109012, BA50:111881, BA60:114751, M:111881, M10:114751, M20:117618, M30:120486, M40:123354, M50:126222},
-  {step:17,TA:null,BA:100667, BA10:103534, BA20:106405, BA30:109272, BA40:112139, BA50:115010, BA60:117880, M:115010, M10:117880, M20:120748, M30:123616, M40:126486, M50:129355},
-  {step:18,TA:null,BA:103794, BA10:106664, BA20:109532, BA30:112401, BA40:115270, BA50:118140, BA60:121006, M:118140, M10:121006, M20:123874, M30:126745, M40:129613, M50:132483},
-  {step:19,TA:null,BA:106925, BA10:109795, BA20:112661, BA30:115530, BA40:118400, BA50:121269, BA60:124138, M:121269, M10:124138, M20:127006, M30:129876, M40:132742, M50:135612},
-  {step:20,TA:null,BA:110056, BA10:112923, BA20:115792, BA30:118660, BA40:121529, BA50:124398, BA60:127266, M:124398, M10:127266, M20:130136, M30:133006, M40:135874, M50:138742},
-  {step:21,TA:null,BA:113186, BA10:116053, BA20:118920, BA30:121791, BA40:124658, BA50:127529, BA60:130399, M:127529, M10:130399, M20:133265, M30:136134, M40:139003, M50:141872},
-  {step:22,TA:null,BA:116315, BA10:119183, BA20:122050, BA30:124919, BA40:127790, BA50:130659, BA60:133527, M:130659, M10:133527, M20:136395, M30:139264, M40:142133, M50:145000}
-];
-window.baseTable = baseTable;
-/* ------------------------------ State & helpers ------------------------------ */
-let roster = [];
-let lastSalaryPayload = null;
-let lastRecalcAt = null;
-let affordabilityComputed = false;
-
-const rosterStorageRawKey = "bta_roster_raw_csv";
-const rosterStorageParsedKey = "bta_roster_parsed";
-const rosterLegacyKey = "bta_roster_json";
-  // ============================
-// ROSTER: default load + upload
-// ============================
-function setRosterStatus(msg){
-  const el = document.getElementById("rosterStatus");
-  if (el) el.textContent = msg || "";
-}
-
-function getEmbeddedRosterCSV(){
-  const el = document.getElementById("embeddedRoster");
-  return el ? (el.value || "").trim() : "";
-}
-
-function getRosterTextCSV(){
-  const el = document.getElementById("rosterText");
-  return el ? (el.value || "").trim() : "";
-}
-
-function saveRosterToStorage(rawCsv){
-  try{
-    localStorage.setItem(rosterStorageRawKey, rawCsv || "");
-  }catch(e){}
-}
-
-function loadRosterFromStorage(){
-  try{
-    return (localStorage.getItem(rosterStorageRawKey) || "").trim();
-  }catch(e){
-    return "";
-  }
-}
-
-function clearRosterStorage(){
-  try{
-    localStorage.removeItem(rosterStorageRawKey);
-    localStorage.removeItem(rosterStorageParsedKey);
-    localStorage.removeItem(rosterLegacyKey);
-  }catch(e){}
-}
-
-function applyRosterFromCSV(rawCsv, sourceLabel){
-  const parsed = parseCSV(rawCsv);
-  roster = parsed || [];
-  saveRosterToStorage(rawCsv);
-  setRosterStatus(`${sourceLabel}: ${roster.length} rows loaded`);
-  // If you have a recalc function, call it here.
-  // recalcAll();
-}
-
-function ensureDefaultRosterLoaded(){
-  const saved = loadRosterFromStorage();
-  if (saved) return applyRosterFromCSV(saved, "Saved roster");
-
-  const pasted = getRosterTextCSV();
-  if (pasted) return applyRosterFromCSV(pasted, "Pasted roster");
-
-  const embedded = getEmbeddedRosterCSV();
-  if (embedded) return applyRosterFromCSV(embedded, "Default roster");
-
-  setRosterStatus("No roster found (embeddedRoster is empty).");
-}
-
-function readFileAsText(file){
-  return new Promise((resolve, reject)=>{
-    const r = new FileReader();
-    r.onerror = () => reject(new Error("File read failed"));
-    r.onload = () => resolve(String(r.result || ""));
-    r.readAsText(file);
-  });
-}
-function readFileAsArrayBuffer(file){
-  return new Promise((resolve, reject)=>{
-    const r = new FileReader();
-    r.onerror = () => reject(new Error("File read failed"));
-    r.onload = () => resolve(r.result);
-    r.readAsArrayBuffer(file);
-  });
-}
-async function loadRosterFromFile(file){
-  const name = (file?.name || "").toLowerCase();
-  if (!file) return;
-
-  // CSV / TXT
-  if (name.endsWith(".csv") || name.endsWith(".txt")) {
-    const text = await readFileAsText(file);
-    applyRosterFromCSV(text, "File CSV");
-    return;
-  }
-  // XLSX / XLS
-  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-    if (typeof XLSX === "undefined") {
-      throw new Error("XLSX library is not loaded (CDN missing/blocked).");
-    }
-    const buf = await readFileAsArrayBuffer(file);
-    const wb = XLSX.read(buf, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    applyRosterFromCSV(csv, "File XLSX");
-    return;
-  }
-
-  throw new Error("Unsupported file type. Use .csv or .xlsx");
-}
-
-function wireRosterUI(){
-  const loadBtn = document.getElementById("loadRosterBtn");
-  const useSampleBtn = document.getElementById("useSampleRosterBtn");
-  const clearBtn = document.getElementById("clearRosterBtn");
-  const clearSavedBtn = document.getElementById("clearSavedRosterBtn");
-  const fileInput = document.getElementById("rosterFile");
-  const rosterTextEl = document.getElementById("rosterText");
-
-  if (loadBtn) {
-    loadBtn.addEventListener("click", ()=>{
-      const pasted = getRosterTextCSV();
-      if (!pasted) {
-        setRosterStatus("Paste CSV into the box OR choose a file.");
-        return;
-      }
-      applyRosterFromCSV(pasted, "Pasted roster");
-    });
-  }
-
-  if (useSampleBtn) {
-    useSampleBtn.addEventListener("click", ()=>{
-      const embedded = getEmbeddedRosterCSV();
-      if (!embedded) {
-        setRosterStatus("embeddedRoster is empty.");
-        return;
-      }
-      if (rosterTextEl) rosterTextEl.value = "";
-      applyRosterFromCSV(embedded, "Default roster");
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener("click", ()=>{
-      roster = [];
-      if (rosterTextEl) rosterTextEl.value = "";
-      saveRosterToStorage("");
-      setRosterStatus("Roster cleared (saved roster not deleted).");
-      // recalcAll();
-    });
-  }
-
-  if (clearSavedBtn) {
-    clearSavedBtn.addEventListener("click", ()=>{
-      clearRosterStorage();
-      setRosterStatus("Saved roster cleared.");
-      ensureDefaultRosterLoaded();
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener("change", async ()=>{
-      try{
-        const f = fileInput.files && fileInput.files[0];
-        if (!f) return;
-        await loadRosterFromFile(f);
-      }catch(err){
-        setRosterStatus(`Upload error: ${err.message || err}`);
-      }finally{
-        fileInput.value = ""; // allow re-selecting same file
-      }
-    });
-  }
-}
-
-// Run roster boot once the page is ready
-document.addEventListener("DOMContentLoaded", ()=>{
-  try{
-    wireRosterUI();
-    ensureDefaultRosterLoaded();
-  }catch(e){
-    setRosterStatus(`Roster init error: ${e.message || e}`);
-  }
-});
-/* ===========================
-   RECOVERED CORE APP LOGIC
-   - generateSalaryTable()
-   - computeAffordability()
-   - staff lookup wiring
-   - roster exports wiring
-   - scenario save/load + compare render
-   =========================== */
-
-const SCENARIO_KEY_A = "bta_scenario_A_v1";
-const SCENARIO_KEY_B = "bta_scenario_B_v1";
-
-function clamp(n, lo, hi){
-  n = +n;
-  if (!isFinite(n)) return lo;
-  return Math.max(lo, Math.min(hi, n));
-}
-
-function parseYearInput(str){
-  const s = String(str || "").trim();
-  if (!s) return [1];
-  // allow "1-3" or "1,2,3" or "2"
-  if (s.includes("-")) {
-    const [a,b] = s.split("-").map(x=>parseInt(x.trim(),10));
-    const start = clamp(a||0, 0, 5);
-    const end   = clamp(b||start, 0, 5);
-    const out = [];
-    for (let y=Math.min(start,end); y<=Math.max(start,end); y++) out.push(y);
-    return out;
-  }
-  return s.split(/[, ]+/).map(x=>parseInt(x,10)).filter(n=>isFinite(n) && n>=0 && n<=5);
-}
-
-function stepForYear(baseStep, year){
-  // Your rule: Year 0 & Year 1 keep same step; Year 2+ advances +1 each year up to 22
-  const s0 = clamp(baseStep, 1, 22);
-  if (year <= 1) return s0;
-  const advanced = s0 + (year - 1); // year2 => +1, year3 => +2...
-  return clamp(advanced, 1, 22);
-}
-
-function getUIParams(){
-  const pct = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 1);
-  const flat = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), -1e9, 1e9);
-
-  const yPct  = [null, pct("year1"), pct("year2"), pct("year3"), pct("year4"), pct("year5")];
-  const yFlat = [null, flat("flat1"), flat("flat2"), flat("flat3"), flat("flat4"), flat("flat5")];
-
-  const contrib = (id)=> clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 100) / 100;
-  const hiPct = [null,
-    contrib("contributionY1"),
-    contrib("contributionY2"),
-    contrib("contributionY3"),
-    contrib("contributionY4"),
-    contrib("contributionY5")
-  ];
-
-  return { yPct, yFlat, hiPct };
-}
-
-function serializeScenarioFromUI(){
-  const { yPct, yFlat, hiPct } = getUIParams();
-  return {
-    yPct, yFlat, hiPct,
-    gfBase: +document.getElementById("gfBase")?.value || 0,
-    gfGrowthPct: +document.getElementById("gfGrowthPct")?.value || 0,
-    adderPct: +document.getElementById("adderPct")?.value || 0,
-    otherPct: +document.getElementById("otherPct")?.value || 0,
-    budget: +document.getElementById("budget")?.value || 0,
-    maxBudgetPct: +document.getElementById("maxBudgetPct")?.value || 0,
-    maxBudgetFlat: +document.getElementById("maxBudgetFlat")?.value || 0,
-    stateAidPct: +document.getElementById("stateAidPct")?.value || 0,
-    addlRevenue: +document.getElementById("addlRevenue")?.value || 0,
-    otherSavings: +document.getElementById("otherSavings")?.value || 0
-  };
-}
-
-function applyScenarioToUI(s){
-  if (!s) return;
-  const setVal = (id, v)=>{ const el=document.getElementById(id); if(el) el.value = v; };
-
-  // pct dropdown values are decimals like 0.0275
-  setVal("year1", String(s.yPct?.[1] ?? 0.0275));
-  setVal("year2", String(s.yPct?.[2] ?? 0.0275));
-  setVal("year3", String(s.yPct?.[3] ?? 0.0275));
-  setVal("year4", String(s.yPct?.[4] ?? 0.0275));
-  setVal("year5", String(s.yPct?.[5] ?? 0.0275));
-
-  setVal("flat1", String(s.yFlat?.[1] ?? 1200));
-  setVal("flat2", String(s.yFlat?.[2] ?? 1200));
-  setVal("flat3", String(s.yFlat?.[3] ?? 1200));
-  setVal("flat4", String(s.yFlat?.[4] ?? 1200));
-  setVal("flat5", String(s.yFlat?.[5] ?? 1200));
-
-  // hi % dropdowns store whole numbers like 19, 20...
-  setVal("contributionY1", String((s.hiPct?.[1] ?? 0.19) * 100));
-  setVal("contributionY2", String((s.hiPct?.[2] ?? 0.19) * 100));
-  setVal("contributionY3", String((s.hiPct?.[3] ?? 0.19) * 100));
-  setVal("contributionY4", String((s.hiPct?.[4] ?? 0.19) * 100));
-  setVal("contributionY5", String((s.hiPct?.[5] ?? 0.19) * 100));
-
-  setVal("gfBase", String(s.gfBase ?? ""));
-  setVal("gfGrowthPct", String(s.gfGrowthPct ?? ""));
-  setVal("adderPct", String(s.adderPct ?? ""));
-  setVal("otherPct", String(s.otherPct ?? ""));
-  setVal("budget", String(s.budget ?? ""));
-  setVal("maxBudgetPct", String(s.maxBudgetPct ?? ""));
-  setVal("maxBudgetFlat", String(s.maxBudgetFlat ?? ""));
-  setVal("stateAidPct", String(s.stateAidPct ?? ""));
-  setVal("addlRevenue", String(s.addlRevenue ?? ""));
-  setVal("otherSavings", String(s.otherSavings ?? ""));
-}
-
-function saveScenario(which){
-  const payload = serializeScenarioFromUI();
-  try{
-    localStorage.setItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B, JSON.stringify(payload));
-    updateScenarioStatus();
-  }catch(e){}
-}
-
-function loadScenario(which){
-  try{
-    const raw = localStorage.getItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  }catch(e){ return null; }
-}
-
-function updateScenarioStatus(){
-  const el = document.getElementById("scenarioStatus");
-  if (!el) return;
-  const hasA = !!loadScenario("A");
-  const hasB = !!loadScenario("B");
-  el.textContent = `A: ${hasA ? "saved" : "—"} | B: ${hasB ? "saved" : "—"}`;
-}
-
-function getBaseSalary(step, col){
-  const row = baseTable.find(r => r.step === step);
-  if (!row) return null;
-  const v = row[col];
-  return (v==null) ? null : +v;
-}
-
-function buildSchedules(params){
-  // schedules[year][step][col] = salary
-  const schedules = [];
-  schedules[0] = {};
-  for (let s=1; s<=22; s++){
-    schedules[0][s] = {};
-    for (const c of COLS){
-      const v = getBaseSalary(s,c);
-      schedules[0][s][c] = (v==null) ? null : v;
-    }
-  }
-
-  for (let y=1; y<=5; y++){
-    schedules[y] = {};
-    for (let s=1; s<=22; s++){
-      schedules[y][s] = {};
-      for (const c of COLS){
-        const prev = schedules[y-1][s][c];
-        schedules[y][s][c] = (prev==null) ? null : ((prev + (params.yFlat[y]||0)) * (1 + (params.yPct[y]||0)));
-      }
-    }
-  }
-  return schedules;
-}
-
-function salaryAt(schedules, year, step, col){
-  year = clamp(year, 0, 5);
-  step = clamp(step, 1, 22);
-  col = normScale(col);
-  const v = schedules?.[year]?.[step]?.[col];
-  return (v==null) ? null : +v;
-}
-
-function rosterPayrollForYear(schedules, year){
-  let total = 0;
-  for (const r of (roster || [])){
-    const stepY = stepForYear(r.Step, year);
-    const v = salaryAt(schedules, year, stepY, r.Column);
-    if (v==null) continue;
-    total += v * (r.FTE || 1);
-  }
-  return total;
-}
-
-function rosterBaselineForYear(schedules0, year){
-  // Baseline = no contractual raises (schedule 0), but apply the step progression rule to people.
-  let total = 0;
-  for (const r of (roster || [])){
-    const stepY = stepForYear(r.Step, year);
-    const v = salaryAt([schedules0], 0, stepY, r.Column);
-    if (v==null) continue;
-    total += v * (r.FTE || 1);
-  }
-  return total;
-}
-
-function renderSalaryTable(schedules, years, title){
-  const wrap = document.createElement("div");
-  wrap.className = "card";
-  wrap.style.marginBottom = "14px";
-
-  const h = document.createElement("h3");
-  h.textContent = title;
-  wrap.appendChild(h);
-
-  years.forEach((y)=>{
-    const sub = document.createElement("div");
-    sub.style.margin = "10px 0 6px";
-    sub.innerHTML = `<strong>Year ${y}</strong>`;
-    wrap.appendChild(sub);
-
-    const tc = document.createElement("div");
-    tc.className = "table-container";
-
-    const t = document.createElement("table");
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-    trh.innerHTML = `<th>Step</th>` + COLS.map(c=>`<th data-col="${c}">${c}</th>`).join("");
-    thead.appendChild(trh);
-    t.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    for (let s=1; s<=22; s++){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${s}</td>` + COLS.map(c=>{
-        const v = schedules?.[y]?.[s]?.[c];
-        return `<td data-col="${c}"><span class="main">${v==null ? "—" : money(v)}</span></td>`;
-      }).join("");
-      tbody.appendChild(tr);
-    }
-    t.appendChild(tbody);
-
-    tc.appendChild(t);
-    wrap.appendChild(tc);
-  });
-
-  return wrap;
-}
-
-function generateSalaryTable({mode="inline"} = {}){
-  const years = parseYearInput(document.getElementById("tableYear")?.value);
-  if (!years.length) { setStatus("Invalid year range."); return; }
-
-  const renderArea = document.getElementById("renderArea");
-  if (!renderArea) return;
-  renderArea.innerHTML = "";
-
-  const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
-  const A = loadScenario("A");
-  const B = loadScenario("B");
-
-  const uiParams = getUIParams();
-  const schedulesUI = buildSchedules(uiParams);
-
-  const blocks = [];
-
-  if (compareOn && A && B){
-    const sA = buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct});
-    const sB = buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct});
-
-    blocks.push(renderSalaryTable(sA, years, "Salary Table — Scenario A"));
-    blocks.push(renderSalaryTable(sB, years, "Salary Table — Scenario B"));
-  } else {
-    blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI"));
-  }
-
-  blocks.forEach(b=>renderArea.appendChild(b));
-
-  // also recompute affordability dashboard whenever you generate
-  computeAffordability();
-
-  if (mode === "newWindow"){
-    const w = window.open("", "_blank");
-    if (!w) return;
-    const html = `
-      <!doctype html><html><head><meta charset="utf-8"/>
-      <title>BTA Salary Table</title>
-      <style>
-        body{font-family:Arial,system-ui;margin:16px;color:#111}
-        .table-container{overflow-x:auto;border:1px solid #ddd;border-radius:10px;margin:10px 0;background:#fff}
-        table{border-collapse:collapse;width:100%;min-width:900px}
-        th,td{border:1px solid #ddd;padding:6px 8px;white-space:nowrap;font-size:12px}
-        thead th{background:#2d3748;color:#fff;position:sticky;top:0}
-        h3{margin:10px 0 4px}
-        .btns{display:flex;gap:8px;margin:10px 0}
-        button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
-      </style>
-      </head><body>
-        <div class="btns">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
-        </div>
-        ${renderArea.innerHTML}
-      </body></html>
-    `;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-  }
-}
-
-function computeAffordability(){
-  const params = getUIParams();
-  const schedules = buildSchedules(params);
-
-  const adderPct = clamp(parseFloat(document.getElementById("adderPct")?.value || "0"), 0, 100) / 100;
-  const addlRevenue = +document.getElementById("addlRevenue")?.value || 0;
-  const otherSavings = +document.getElementById("otherSavings")?.value || 0;
-
-  const budget = +document.getElementById("budget")?.value || 0;
-  const maxBudgetFlat = +document.getElementById("maxBudgetFlat")?.value || 0;
-  const maxBudgetPct = clamp(+document.getElementById("maxBudgetPct")?.value || 0, 0, 100) / 100;
-  const stateAidPct = clamp(+document.getElementById("stateAidPct")?.value || 0, 0, 100) / 100;
-
-  const allowableNewSpend = Math.max(maxBudgetFlat, budget * maxBudgetPct) + (budget * stateAidPct);
-  const offsets = addlRevenue + otherSavings;
-
-  // Build baseline schedule0 separately for baseline-with-step-progression
-  const schedules0 = schedules[0];
-
-  const tbody = document.getElementById("affordabilityTableBody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  const years = [1,2,3,4,5];
-
-  let anyFail = false;
-  let totalNet = 0;
-
-  years.forEach((y)=>{
-    const contractPayroll = rosterPayrollForYear(schedules, y);
-    const baselinePayroll = rosterBaselineForYear(schedules0, y);
-
-    const incremental = (contractPayroll - baselinePayroll);
-    const incrementalWithAdders = incremental * (1 + adderPct);
-    const netImpact = incrementalWithAdders - offsets;
-
-    totalNet += netImpact;
-    const pass = netImpact <= allowableNewSpend;
-    if (!pass) anyFail = true;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${y}</td>
-      <td>${money(contractPayroll)}</td>
-      <td>${money(baselinePayroll)}</td>
-      <td>${money(incrementalWithAdders)}</td>
-      <td>${money(offsets)}</td>
-      <td>${money(netImpact)}</td>
-      <td>${money(allowableNewSpend)}</td>
-      <td class="${pass ? "ok" : "bad"}">${pass ? "PASS" : "FAIL"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  const summary = document.getElementById("affordabilitySummary");
-  const err = document.getElementById("affordabilityError");
-  if (summary) summary.style.display = "block";
-  if (err) err.style.display = anyFail ? "block" : "none";
-
-  if (summary){
-    summary.className = "banner " + (anyFail ? "fail" : "pass");
-    summary.innerHTML = `
-      <div><strong>${anyFail ? "Affordability: FAIL in at least one year" : "Affordability: PASS (all years)"}</strong></div>
-      <div class="soft">Allowable new spend/yr = ${money(allowableNewSpend)} (cap + state aid). Offsets/yr = ${money(offsets)}. Adders = ${(adderPct*100).toFixed(1)}%.</div>
-    `;
-  }
-  if (err){
-    err.innerHTML = `<strong>One or more years exceed allowable new spend.</strong> Reduce raises/flat, increase offsets, or revise cap assumptions.`;
-  }
-
-  // also update the “contract payroll” and “incremental” summary boxes
-  const setText = (id, v)=>{ const el=document.getElementById(id); if(el) el.textContent = v; };
-  let totalContract = 0;
-  let totalInc = 0;
-  years.forEach((y)=>{
-    const c = rosterPayrollForYear(schedules, y);
-    const b = rosterBaselineForYear(schedules0, y);
-    const inc = (c-b) * (1+adderPct);
-    totalContract += c;
-    totalInc += inc;
-    setText(`contractPayrollY${y}`, money(c));
-    setText(`incrementalY${y}`, money(inc));
-  });
-  setText("contractPayrollTotal", money(totalContract));
-  setText("incrementalTotal", money(totalInc));
-}
-
-function wireCoreButtons(){
-  safeAddListener("generateTableButton", "click", ()=>generateSalaryTable({mode:"inline"}));
-  safeAddListener("generateTableNewWindow", "click", ()=>generateSalaryTable({mode:"newWindow"}));
-
-  safeAddListener("saveScenarioA", "click", ()=>saveScenario("A"));
-  safeAddListener("saveScenarioB", "click", ()=>saveScenario("B"));
-  safeAddListener("loadScenarioA", "click", ()=>{ const s=loadScenario("A"); if(!s) return; applyScenarioToUI(s); computeAffordability(); });
-  safeAddListener("loadScenarioB", "click", ()=>{ const s=loadScenario("B"); if(!s) return; applyScenarioToUI(s); computeAffordability(); });
-
-  // staff lookup
-  safeAddListener("sl_btn", "click", ()=>{
-    const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
-    const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
-    const col  = normScale(document.getElementById("sl_scale")?.value || "M50");
-    const scenario = document.getElementById("sl_scenario")?.value || "ui";
-
-    const paramsUI = getUIParams();
-    const schedulesUI = buildSchedules(paramsUI);
-
-    const doOne = (label, schedules)=>{
-      const s = salaryAt(schedules, year, step, col);
-      return `${label}: ${s==null ? "—" : money(s)}`;
-    };
-
-    let out = "";
-    if (scenario === "A" || scenario === "both"){
-      const A = loadScenario("A");
-      if (A){
-        out += doOne("Scenario A", buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct})) + "\n";
-      } else out += "Scenario A: (not saved)\n";
-    }
-    if (scenario === "B" || scenario === "both"){
-      const B = loadScenario("B");
-      if (B){
-        out += doOne("Scenario B", buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct})) + "\n";
-      } else out += "Scenario B: (not saved)\n";
-    }
-    if (scenario === "ui"){
-      out = doOne("Current UI", schedulesUI);
-    }
-
-    const el = document.getElementById("sl_out");
-    if (el) el.textContent = out.trim();
-  });
-
-  // exports
-  safeAddListener("exportCsvBtn", "click", ()=>{
-    const year = clamp(+document.getElementById("exportYear")?.value || 1, 0, 5);
-    const scenario = document.getElementById("exportScenario")?.value || "ui";
-
-    const uiSchedules = buildSchedules(getUIParams());
-    const A = loadScenario("A");
-    const B = loadScenario("B");
-    const sA = A ? buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct}) : null;
-    const sB = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.yFlat, hiPct:B.hiPct}) : null; // (typo safe below)
-    const sB2 = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct}) : null;
-
-    const header = ["Name","Step","Column","FTE"];
-    let rows = [];
-
-    if (scenario === "both"){
-      header.push("Salary_A","Salary_B");
-      rows = (roster||[]).map(r=>{
-        const stepY = stepForYear(r.Step, year);
-        const a = sA ? salaryAt(sA, year, stepY, r.Column) : null;
-        const b = sB2 ? salaryAt(sB2, year, stepY, r.Column) : null;
-        return [
-          r.Name, r.Step, r.Column, r.FTE,
-          a==null ? "" : (a*(r.FTE||1)).toFixed(2),
-          b==null ? "" : (b*(r.FTE||1)).toFixed(2)
-        ];
-      });
-    } else {
-      header.push("Salary");
-      const schedules =
-        scenario==="A" ? (A ? sA : null) :
-        scenario==="B" ? (B ? sB2 : null) :
-        uiSchedules;
-
-      rows = (roster||[]).map(r=>{
-        const stepY = stepForYear(r.Step, year);
-        const v = schedules ? salaryAt(schedules, year, stepY, r.Column) : null;
-        return [r.Name, r.Step, r.Column, r.FTE, v==null ? "" : (v*(r.FTE||1)).toFixed(2)];
-      });
-    }
-
-    const csv = [header.join(",")].concat(rows.map(r=>r.map(x=>{
-      const s = String(x ?? "");
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-    }).join(","))).join("\n");
-
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `bta_roster_year${year}_${scenario}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  });
-
-  safeAddListener("exportXlsxBtn", "click", ()=>{
-    if (typeof XLSX === "undefined"){
-      alert("XLSX library not loaded.");
-      return;
-    }
-    const years = parseYearInput(document.getElementById("tableYear")?.value);
-    const scenario = document.getElementById("exportScenario")?.value || "ui";
-
-    const uiSchedules = buildSchedules(getUIParams());
-    const A = loadScenario("A");
-    const B = loadScenario("B");
-    const sA = A ? buildSchedules({yPct:A.yPct, yFlat:A.yFlat, hiPct:A.hiPct}) : null;
-    const sB2 = B ? buildSchedules({yPct:B.yPct, yFlat:B.yFlat, hiPct:B.hiPct}) : null;
-
-    const wb = XLSX.utils.book_new();
-
-    years.forEach((year)=>{
-      const header = ["Name","BaseStep","YearStep","Column","FTE"];
-      let data = [];
-
-      if (scenario === "both"){
-        header.push("Salary_A","Salary_B");
-        data = (roster||[]).map(r=>{
-          const stepY = stepForYear(r.Step, year);
-          const a = sA ? salaryAt(sA, year, stepY, r.Column) : null;
-          const b = sB2 ? salaryAt(sB2, year, stepY, r.Column) : null;
-          return [
-            r.Name, r.Step, stepY, r.Column, r.FTE,
-            a==null ? "" : (a*(r.FTE||1)),
-            b==null ? "" : (b*(r.FTE||1))
-          ];
-        });
-      } else {
-        header.push("Salary");
-        const schedules =
-          scenario==="A" ? (sA || null) :
-          scenario==="B" ? (sB2 || null) :
-          uiSchedules;
-
-        data = (roster||[]).map(r=>{
-          const stepY = stepForYear(r.Step, year);
-          const v = schedules ? salaryAt(schedules, year, stepY, r.Column) : null;
-          return [r.Name, r.Step, stepY, r.Column, r.FTE, v==null ? "" : (v*(r.FTE||1))];
-        });
-      }
-
-      const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-      XLSX.utils.book_append_sheet(wb, ws, `Year${year}`);
-    });
-
-    XLSX.writeFile(wb, `bta_roster_export_${scenario}.xlsx`);
-  });
-
-  // recompute affordability when key fields change
-  const watchIds = ["year1","year2","year3","year4","year5","flat1","flat2","flat3","flat4","flat5","adderPct","budget","maxBudgetPct","maxBudgetFlat","stateAidPct","addlRevenue","otherSavings"];
-  watchIds.forEach(id=>{
-    safeAddListener(id, "change", ()=>computeAffordability());
-    safeAddListener(id, "input", ()=>computeAffordability());
-  });
-}
-
-document.addEventListener("DOMContentLoaded", ()=>{
-  updateScenarioStatus();
-  wireCoreButtons();
-  // if roster already loaded, affordability can compute immediately
-  try{ computeAffordability(); }catch(e){}
-});
-/* =========================
-   CRASH REPORTER + BRIDGE
-   Paste at the very bottom of the script
-   ========================= */
-
-(function () {
-  // 1) Show JS errors in the page (statusMsg + rosterStatus) so you aren’t blind
-  window.addEventListener("error", (ev) => {
-    const msg = ev?.error?.stack || ev?.message || String(ev);
-    try { setStatus("JS ERROR: " + msg); } catch(_) {}
-    try { setRosterStatus("JS ERROR: " + msg); } catch(_) {}
-  });
-
-  window.addEventListener("unhandledrejection", (ev) => {
-    const msg = ev?.reason?.stack || ev?.reason?.message || String(ev?.reason);
-    try { setStatus("PROMISE ERROR: " + msg); } catch(_) {}
-    try { setRosterStatus("PROMISE ERROR: " + msg); } catch(_) {}
-  });
-
-  // 2) If your new code expects generateSalaryTable, but this file has generateTable,
-  // make them the same thing.
-  if (typeof window.generateSalaryTable !== "function" && typeof window.generateTable === "function") {
-    window.generateSalaryTable = window.generateTable;
-  }
-
-  // 3) Force the button to call whichever one exists (prevents “nothing happens”)
-  const btn = document.getElementById("generateTableButton");
-  if (btn) {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      try {
-        const fn = window.generateSalaryTable || window.generateTable;
-        if (typeof fn !== "function") {
-          setStatus("No generator found: generateSalaryTable() / generateTable() missing.");
-          return;
-        }
-        fn();
-      } catch (err) {
-        console.error(err);
-        setStatus("Generate crashed: " + (err?.message || err));
-      }
-    }, { capture: true });
-  }
-})();
-
+  window.BEE_AI_ENDPOINT = "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
+<script src="bee-ai.js" defer></script>
 
 </body>
 </html>
