@@ -82,14 +82,26 @@ sendBtn?.addEventListener("click", async () => {
   input.value = "";
 
   // Optional: include salary table context so AI can answer with real numbers
-  const tables = readRenderedTables();
-  const context = {
-    tables, // may be null if nothing rendered yet
-    page: {
-      url: location.href,
-      premiumType: document.getElementById("netPremiumType")?.value || "family",
-    },
-  };
+  const tablesPayload = readRenderedTables();
+
+if (!tablesPayload || !tablesPayload.tables?.length) {
+  appendMessage(
+    "Generate the salary table first, then ask Bee.",
+    "bot"
+  );
+  return;
+}
+
+const context = {
+  generatedAt: tablesPayload.generatedAt,
+  toggles: tablesPayload.toggles,
+  tables: tablesPayload.tables, // <-- THIS is the critical fix
+  page: {
+    url: location.href,
+    premiumType: document.getElementById("netPremiumType")?.value || "family",
+  },
+};
+
 
   // Simple “typing…” line
   appendMessage("Thinking…", "bot");
