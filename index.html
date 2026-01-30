@@ -568,6 +568,42 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
             </select>
           </label>
         </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterHighlight" checked/>
+            Highlight roster cells
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRosterDetails"/>
+            Show roster names + cell cost
+          </label>
+        </div>
+<div class="row">
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleHideTA" />
+    Hide TA column
+  </label>
+
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleCompareY0" />
+    Compare to Year 0 (Δ line)
+  </label>
+</div>
+
+<div class="row">
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    <input type="checkbox" id="toggleNetPay" />
+    Show salary after insurance (net)
+  </label>
+
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+    Premium type
+    <select id="netPremiumType">
+      <option value="family" selected>Family</option>
+      <option value="individual">Individual</option>
+    </select>
+  </label>
+</div>
       </fieldset>
 
       <fieldset>
@@ -797,9 +833,13 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 <script src="roster.js" defer></script>
 <script src="affordability.js" defer></script>
 <script src="app.js" defer></script>
+
 <script>
-  window.BEE_AI_ENDPOINT = "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
+  window.BEE_AI_ENDPOINT =
+    "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
+<script src="bee-ai.js" defer></script>
+
 <script src="bee-ai.js" defer></script>
 
 </body>
