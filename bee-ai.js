@@ -66,14 +66,12 @@ button.addEventListener("click", () => {
 });
     // Research URL helper: prompts for a URL, then sends as "research: <url>"
 researchBtn?.addEventListener("click", () => {
-  const url = prompt("Paste a public URL to summarize:", "https://");
-  if (!url) return;
-  const cleaned = url.trim();
-  if (!cleaned) return;
-
-  // Put research command into input and send immediately
-  input.value = `research: ${cleaned}`;
-  sendBtn?.click();
+  // Put the cursor in the box with the correct prefix so the user can paste.
+  if (!input.value.trim().toLowerCase().startsWith("research:")) {
+    input.value = "research: ";
+  }
+  setChatOpen(true);
+  input.focus();
 });
 
 // Expand/Collapse toggle
@@ -127,19 +125,23 @@ sendBtn?.addEventListener("click", async () => {
   // Optional: include salary table context so AI can answer with real numbers
   const tablesPayload = readRenderedTables();
   console.log("BEE tablesPayload:", tablesPayload);
-  
-  if (!tablesPayload || !tablesPayload.tables?.length) {
-    appendMessage(
-    "Generate the salary table first, then ask Bee.",
-    "bot"
-  );
-  return;
-}
 
 const context = {
-  generatedAt: tablesPayload.generatedAt,
-  toggles: tablesPayload.toggles,
-  tables: tablesPayload.tables, // <-- THIS is the critical fix
+  generatedAt: tablesPayload?.generatedAt || null,
+  toggles: tablesPayload?.toggles || {
+    hideTa: document.getElementById("renderArea")?.classList.contains("hide-ta") || false,
+    showNet: document.getElementById("renderArea")?.classList.contains("show-net") || false,
+    showDelta: document.getElementById("renderArea")?.classList.contains("show-delta") || false,
+    premiumType: document.getElementById("netPremiumType")?.value || "family",
+  },
+  tables: tablesPayload?.tables || [],
+
+  // Lightweight “always available” context:
+  roster: {
+    pastedCsv: document.getElementById("rosterText")?.value?.trim() || "",
+    embeddedCsv: document.getElementById("embeddedRoster")?.value?.trim() || "",
+  },
+
   page: {
     url: location.href,
     premiumType: document.getElementById("netPremiumType")?.value || "family",
