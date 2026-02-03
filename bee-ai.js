@@ -125,6 +125,13 @@ sendBtn?.addEventListener("click", async () => {
   // Optional: include salary table context so AI can answer with real numbers
   const tablesPayload = readRenderedTables();
   console.log("BEE tablesPayload:", tablesPayload);
+  if (!tablesPayload || !tablesPayload.tables?.length) {
+  appendMessage(
+    "Generate the salary table first (turn on 'Show A & B when generating'), then ask Bee.",
+    "bot"
+  );
+  return;
+}
 
 const context = {
   generatedAt: tablesPayload?.generatedAt || null,
