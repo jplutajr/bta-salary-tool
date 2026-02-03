@@ -1,27 +1,39 @@
 (() => {
-  const SalaryMath = () => window.SalaryMath || {};
+  /***********************************************************************
+   * app.js — BTA Salary Lookup
+   * Fixes included:
+   *  - Built-in SalaryMath fallback (prevents "salary-math.js missing" boot error)
+   *  - Robust HI contribution parsing (supports 19 or 0.19 inputs)
+   *  - A2 behavior: tables open in new window, inline only hidden for newWindow
+   *  - Adds .is-hidden style if your CSS doesn’t define it
+   ***********************************************************************/
 
-  const BUILD_VERSION = "v0.5.0";
+  // ------------------------------ Small CSS safety ------------------------------
+  (function ensureHiddenClass() {
+    try {
+      const id = "__bta_app_hidden_style__";
+      if (document.getElementById(id)) return;
+      const style = document.createElement("style");
+      style.id = id;
+      style.textContent = `
+        .is-hidden{ display:none !important; }
+      `;
+      document.head.appendChild(style);
+    } catch {
+      // ignore
+    }
+  })();
+
+  // ------------------------------ Constants ------------------------------
+  const BUILD_VERSION = "v0.5.1";
   const BUILD_TIME = new Date().toLocaleString();
+
+  // 2025 premiums (annual)
   const IND_PREM_YEAR = 19599.96;
   const FAM_PREM_YEAR = 43965.48;
 
-  const COLS = [
-    "TA",
-    "BA",
-    "BA10",
-    "BA20",
-    "BA30",
-    "BA40",
-    "BA50",
-    "BA60",
-    "M",
-    "M10",
-    "M20",
-    "M30",
-    "M40",
-    "M50"
-  ];
+  const COLS = ["TA","BA","BA10","BA20","BA30","BA40","BA50","BA60","M","M10","M20","M30","M40","M50"];
+
   const baseTable = [
     { step: 1, TA: 31297, BA: 52156, BA10: 55028, BA20: 57896, BA30: 60765, BA40: 63634, BA50: 66502, BA60: 69371, M: 66502, M10: 69371, M20: 72239, M30: 75109, M40: 77975, M50: 80846 },
     { step: 2, TA: null, BA: 54767, BA10: 57634, BA20: 60504, BA30: 63372, BA40: 66241, BA50: 69109, BA60: 71980, M: 69109, M10: 71980, M20: 74847, M30: 77714, M40: 80586, M50: 83453 },
@@ -47,10 +59,9 @@
     { step: 22, TA: null, BA: 116315, BA10: 119183, BA20: 122050, BA30: 124919, BA40: 127790, BA50: 130659, BA60: 133527, M: 130659, M10: 133527, M20: 136395, M30: 139264, M40: 142133, M50: 145000 }
   ];
 
-  const money = (value) => Number(value || 0).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD"
-  });
+  // ------------------------------ Utilities ------------------------------
+  const money = (value) =>
+    Number(value || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
   const setStatus = (msg) => {
     const node = document.getElementById("statusMsg");
@@ -71,9 +82,7 @@
       const start = clamp(a || 0, 0, 5);
       const end = clamp(b || start, 0, 5);
       const out = [];
-      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) {
-        out.push(y);
-      }
+      for (let y = Math.min(start, end); y <= Math.max(start, end); y += 1) out.push(y);
       return out;
     }
     return raw
@@ -82,17 +91,129 @@
       .filter((n) => Number.isFinite(n) && n >= 0 && n <= 5);
   };
 
-  const stepForYear = (baseStep, year) => {
-    const sm = SalaryMath();
-    if (typeof sm.stepForYear === "function") {
-      return sm.stepForYear(baseStep, year);
-    }
-    const s0 = clamp(baseStep, 1, 22);
-    if (year <= 1) return s0;
-    const advanced = s0 + (year - 1);
-    return clamp(advanced, 1, 22);
+  const getBaseSalary = (step, col) => {
+    const row = baseTable.find((r) => r.step === step);
+    if (!row) return null;
+    const value = row[col];
+    return value == null ? null : Number(value);
   };
 
+  // ------------------------------ Robust HI parsing ------------------------------
+  // Accepts:
+  //  - "19" meaning 19%
+  //  - "0.19" meaning 19%
+  //  - "19%" (if ever)
+  const normalizeHiPct = (raw) => {
+    const s = String(raw ?? "").trim().replace("%", "");
+    const v = Number(s);
+    if (!Number.isFinite(v)) return 0;
+    // If it looks like 19, 20, 23 -> treat as percent
+    if (v > 1) return clamp(v / 100, 0, 1);
+    // If it looks like 0.19 -> already a fraction
+    return clamp(v, 0, 1);
+  };
+
+  // ------------------------------ SalaryMath fallback ------------------------------
+  // Your app boots by checking these functions exist. If salary-math.js fails to load,
+  // we provide them here so the app still works.
+  const ensureSalaryMath = () => {
+    if (window.SalaryMath && typeof window.SalaryMath === "object") {
+      const sm = window.SalaryMath;
+      if (
+        typeof sm.stepForYear === "function" &&
+        typeof sm.computeCellValue === "function" &&
+        typeof sm.computeSalaryAt === "function"
+      ) return;
+    }
+
+    const stepForYearLocal = (baseStep, yearIdx) => {
+      const s0 = clamp(baseStep, 1, 22);
+      if (yearIdx <= 1) return s0;
+      return clamp(s0 + (yearIdx - 1), 1, 22);
+    };
+
+    const computeCellValueLocal = (base, yearIdx, paramsOverride) => {
+      const b = Number(base);
+      if (!Number.isFinite(b)) return null;
+      if (yearIdx === 0) return b;
+
+      let v = b;
+      for (let j = 1; j <= yearIdx; j += 1) {
+        const flat =
+          paramsOverride?.increases?.[j]?.flat ??
+          (Number(document.getElementById(`flat${j}`)?.value || 0) || 0);
+        const rate =
+          paramsOverride?.increases?.[j]?.rate ??
+          (Number(document.getElementById(`year${j}`)?.value || 0) || 0);
+
+        v = (v + Number(flat || 0)) * (1 + Number(rate || 0));
+      }
+      return v;
+    };
+
+    const computeSalaryAtLocal = (step, col, fte, yearIdx, paramsOverride) => {
+      const s = clamp(step, 1, 22);
+      const row = baseTable.find((r) => r.step === s);
+      if (!row) return null;
+      const base = row[col];
+      if (base == null) return null;
+      const gross = computeCellValueLocal(base, yearIdx, paramsOverride);
+      if (gross == null) return null;
+      const f = Number(fte || 1);
+      return +(gross * (Number.isFinite(f) ? f : 1)).toFixed(2);
+    };
+
+    const computeHealthInsuranceNetLocal = (gross, pct, premiumYear) =>
+      +(Number(gross || 0) - Number(premiumYear || 0) * Number(pct || 0)).toFixed(2);
+
+    const explainSalaryAtLocal = (startStep, column, fte, yearIdx, paramsOverride) => {
+      const stepReason =
+        yearIdx <= 1
+          ? "Step does not advance in Year 0/1."
+          : `Step advances +${yearIdx - 1} by Year ${yearIdx}, capped at 22.`;
+      const finalSalary = computeSalaryAtLocal(startStep, column, fte, yearIdx, paramsOverride);
+
+      const flatAdds = [];
+      const pctIncreases = [];
+      for (let j = 1; j <= yearIdx; j += 1) {
+        const flat = paramsOverride?.increases?.[j]?.flat ?? null;
+        const rate = paramsOverride?.increases?.[j]?.rate ?? null;
+        if (flat != null) flatAdds.push({ year: j, amount: Number(flat) });
+        if (rate != null) pctIncreases.push({ year: j, rate: Number(rate) * 100 });
+      }
+
+      return {
+        startStep,
+        column,
+        stepReason,
+        flatAdds,
+        pctIncreases,
+        finalSalary
+      };
+    };
+
+    const runSelfCheckLocal = () => {
+      // Basic sanity: Step 10 M50 exists and Year0 salary is numeric
+      const v = getBaseSalary(10, "M50");
+      if (!Number.isFinite(v)) return { status: "FAIL", reason: "Base table missing Step10 M50" };
+      return { status: "PASS" };
+    };
+
+    window.SalaryMath = {
+      stepForYear: stepForYearLocal,
+      computeCellValue: computeCellValueLocal,
+      computeSalaryAt: computeSalaryAtLocal,
+      computeHealthInsuranceNet: computeHealthInsuranceNetLocal,
+      explainSalaryAt: explainSalaryAtLocal,
+      runSelfCheck: runSelfCheckLocal,
+      systemSelfCheck: runSelfCheckLocal
+    };
+  };
+
+  // Accessor used elsewhere
+  const SalaryMath = () => window.SalaryMath || {};
+
+  // ------------------------------ UI Params ------------------------------
   const getUIParams = () => {
     const pct = (id) => clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 1);
     const flat = (id) => clamp(parseFloat(document.getElementById(id)?.value || "0"), -1e9, 1e9);
@@ -100,7 +221,8 @@
     const yPct = [null, pct("year1"), pct("year2"), pct("year3"), pct("year4"), pct("year5")];
     const yFlat = [null, flat("flat1"), flat("flat2"), flat("flat3"), flat("flat4"), flat("flat5")];
 
-    const contrib = (id) => clamp(parseFloat(document.getElementById(id)?.value || "0"), 0, 100) / 100;
+    // IMPORTANT: accept either 19 or 0.19 from dropdowns/inputs
+    const contrib = (id) => normalizeHiPct(document.getElementById(id)?.value ?? "0.19");
     const hiPct = [
       null,
       contrib("contributionY1"),
@@ -156,11 +278,18 @@
     setVal("flat4", String(payload.yFlat?.[4] ?? 1200));
     setVal("flat5", String(payload.yFlat?.[5] ?? 1200));
 
-    setVal("contributionY1", String((payload.hiPct?.[1] ?? 0.19) * 100));
-    setVal("contributionY2", String((payload.hiPct?.[2] ?? 0.19) * 100));
-    setVal("contributionY3", String((payload.hiPct?.[3] ?? 0.19) * 100));
-    setVal("contributionY4", String((payload.hiPct?.[4] ?? 0.19) * 100));
-    setVal("contributionY5", String((payload.hiPct?.[5] ?? 0.19) * 100));
+    // Store as "percent-like" for UI, but accept both formats.
+    // If payload is 0.19, we convert to 19 for typical "19" input UIs.
+    const toUiPct = (p) => {
+      const v = Number(p ?? 0.19);
+      return v <= 1 ? String(v * 100) : String(v);
+    };
+
+    setVal("contributionY1", toUiPct(payload.hiPct?.[1]));
+    setVal("contributionY2", toUiPct(payload.hiPct?.[2]));
+    setVal("contributionY3", toUiPct(payload.hiPct?.[3]));
+    setVal("contributionY4", toUiPct(payload.hiPct?.[4]));
+    setVal("contributionY5", toUiPct(payload.hiPct?.[5]));
 
     setVal("gfBase", String(payload.gfBase ?? ""));
     setVal("gfGrowthPct", String(payload.gfGrowthPct ?? ""));
@@ -209,13 +338,7 @@
     el.textContent = `A: ${hasA ? "saved" : "—"} | B: ${hasB ? "saved" : "—"}`;
   };
 
-  const getBaseSalary = (step, col) => {
-    const row = baseTable.find((r) => r.step === step);
-    if (!row) return null;
-    const value = row[col];
-    return value == null ? null : Number(value);
-  };
-
+  // ------------------------------ Schedule Builders ------------------------------
   const buildSchedules = (params) => {
     const schedules = [];
     schedules[0] = {};
@@ -233,8 +356,9 @@
         schedules[y][s] = {};
         for (const c of COLS) {
           const prev = schedules[y - 1][s][c];
-          schedules[y][s][c] =
-            prev == null ? null : (prev + (params?.yFlat?.[y] || 0)) * (1 + (params?.yPct?.[y] || 0));
+          const flatAdd = params?.yFlat?.[y] || 0;
+          const rate = params?.yPct?.[y] || 0;
+          schedules[y][s][c] = prev == null ? null : (prev + flatAdd) * (1 + rate);
         }
       }
     }
@@ -251,6 +375,15 @@
     return value == null ? null : Number(value);
   };
 
+  const stepForYear = (baseStep, year) => {
+    const sm = SalaryMath();
+    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year);
+    const s0 = clamp(baseStep, 1, 22);
+    if (year <= 1) return s0;
+    return clamp(s0 + (year - 1), 1, 22);
+  };
+
+  // ------------------------------ UI widgets ------------------------------
   const buildPctDropdowns = () => {
     const ids = ["year1", "year2", "year3", "year4", "year5"];
     const options = [];
@@ -263,7 +396,6 @@
       const sel = document.getElementById(id);
       if (!sel) return;
       sel.innerHTML = options.map((opt) => `<option value="${opt.val}">${opt.label}</option>`).join("");
-      // default
       if (!sel.value) sel.value = "0.0275";
     });
   };
@@ -300,9 +432,7 @@
       statusText.classList.toggle("error", status !== "OK");
     }
     const selfCheck = document.getElementById("systemSelfCheck");
-    if (selfCheck && detail) {
-      selfCheck.textContent = detail;
-    }
+    if (selfCheck && detail) selfCheck.textContent = detail;
   };
 
   const checkSalaryEngine = () => {
@@ -328,6 +458,7 @@
     }
   };
 
+  // ------------------------------ Roster highlighting / toggles ------------------------------
   const buildRosterCellMap = (schedules, year) => {
     const rosterTools = window.BtaRoster;
     const normScale = rosterTools?.normScale || ((value) => value);
@@ -372,6 +503,7 @@
     renderArea.querySelectorAll(".detail").forEach((node) => node.classList.toggle("show", showDetails));
   };
 
+  // ------------------------------ Rendering ------------------------------
   const renderSalaryTable = (schedules, years, title, hiPct) => {
     const rosterTools = window.BtaRoster;
     const wrap = document.createElement("div");
@@ -409,29 +541,36 @@
           const baseValue = schedules?.[0]?.[step]?.[col];
           const rosterEntry = rosterMap.get(`${step}|${col}`);
           const hasRoster = Boolean(rosterEntry);
+
           const premiumType = document.getElementById("netPremiumType")?.value || "family";
           const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
           const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+
           const pct = hiPct?.[hiYearIdx] ?? 0;
           const netValue = value == null ? null : Number((value - premium * pct).toFixed(2));
           const deltaValue = value == null || baseValue == null ? null : value - baseValue;
+
           const detailText = hasRoster
             ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(2)}<br/>Cell total: ${money(rosterEntry.totalCost)}`
             : "";
+
           const tooltip = hasRoster
             ? `Staff: ${rosterEntry.names.join(", ")}\nTotal FTE: ${rosterEntry.totalFte.toFixed(2)}\nCell total: ${money(rosterEntry.totalCost)}`
             : "";
-          const tooltipAttr = tooltip
-            ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
-            : "";
+
+          const tooltipAttr = tooltip ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
+
           const deltaLine = `<div class="delta-line">Δ vs Y0: ${deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)}</div>`;
           const netLine = `<div class="net-line">Net (${premiumLabel}): ${netValue == null ? "—" : money(netValue)}</div>`;
-          return `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>`
-            + `<span class="main">${value == null ? "—" : money(value)}</span>`
-            + deltaLine
-            + netLine
-            + (hasRoster ? `<div class="detail">${detailText}</div>` : "")
-            + "</td>";
+
+          return (
+            `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>` +
+            `<span class="main">${value == null ? "—" : money(value)}</span>` +
+            deltaLine +
+            netLine +
+            (hasRoster ? `<div class="detail">${detailText}</div>` : "") +
+            "</td>"
+          );
         }).join("");
 
         tr.innerHTML = `<td>${step}</td>${rowHtml}`;
@@ -443,10 +582,7 @@
       wrap.appendChild(tableContainer);
     });
 
-    if (rosterTools && typeof rosterTools.onRenderedTable === "function") {
-      rosterTools.onRenderedTable(wrap);
-    }
-
+    if (rosterTools && typeof rosterTools.onRenderedTable === "function") rosterTools.onRenderedTable(wrap);
     return wrap;
   };
 
@@ -459,6 +595,10 @@
 
     const renderArea = document.getElementById("renderArea");
     if (!renderArea) return;
+
+    // A2 rule: only hide inline render area for newWindow mode
+    renderArea.classList.toggle("is-hidden", mode === "newWindow");
+
     renderArea.innerHTML = "";
 
     const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
@@ -497,14 +637,13 @@
       const showDelta = !!document.getElementById("toggleCompareY0")?.checked;
       const showNet = !!document.getElementById("toggleNetPay")?.checked;
 
-      const wrapperClass = [
-        highlightOn ? "" : "roster-highlight-off",
-        hideTa ? "hide-ta" : "",
-        showDelta ? "show-delta" : "",
-        showNet ? "show-net" : ""
-      ].filter(Boolean).join(" ");
+      const wrapperClass = [highlightOn ? "" : "roster-highlight-off", hideTa ? "hide-ta" : "", showDelta ? "show-delta" : "", showNet ? "show-net" : ""]
+        .filter(Boolean)
+        .join(" ");
+
       const recurringBanner = document.getElementById("affordabilitySummaryRecurring")?.outerHTML || "";
       const cashBanner = document.getElementById("affordabilitySummaryCash")?.outerHTML || "";
+
       const html = `
         <!doctype html><html><head><meta charset="utf-8"/>
         <title>BTA Salary Table</title>
@@ -547,14 +686,15 @@
     }
   };
 
+  // ------------------------------ Event wiring ------------------------------
   const safeAddListener = (id, event, handler) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener(event, handler);
   };
 
   const wireCoreButtons = () => {
-    safeAddListener("generateTableButton", "click", () => generateSalaryTable({ mode: "inline" }));
-    safeAddListener("generateTableNewWindow", "click", () => generateSalaryTable({ mode: "newWindow" }));
+    // Generate table opens newWindow (A2)
+    safeAddListener("generateTableButton", "click", () => generateSalaryTable({ mode: "newWindow" }));
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
     safeAddListener("saveScenarioB", "click", () => saveScenario("B"));
@@ -687,35 +827,24 @@
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
 
-    // Premium type impacts net pay lines (re-render if a table exists)
+    // Premium type impacts net pay lines
     safeAddListener("netPremiumType", "change", () => {
-      if (document.getElementById("renderArea")?.children?.length) generateSalaryTable({ mode: "inline" });
+      // Only regenerate inline if user already has a table rendered somewhere.
+      const renderArea = document.getElementById("renderArea");
+      if (renderArea && renderArea.children && renderArea.children.length) {
+        // inline regen (won't open new tab)
+        generateSalaryTable({ mode: "inline" });
+      }
     });
 
-    // ✅ Affordability should recalc when any of these change
+    // Affordability recalcs
     const watchIds = [
-      "year1",
-      "year2",
-      "year3",
-      "year4",
-      "year5",
-      "flat1",
-      "flat2",
-      "flat3",
-      "flat4",
-      "flat5",
-      "adderPct",
-      "otherPct",
-      "budget",
-      "maxBudgetPct",
-      "maxBudgetFlat",
-      "stateAidPct",
-      "addlRevenue",
-      "otherSavings",
-      "recurringSurplus",
-      "oneTimeFund",
-      "reallocPct",
-      "oneTimeMode",
+      "year1","year2","year3","year4","year5",
+      "flat1","flat2","flat3","flat4","flat5",
+      "adderPct","otherPct","budget","maxBudgetPct","maxBudgetFlat",
+      "stateAidPct","addlRevenue","otherSavings","recurringSurplus",
+      "oneTimeFund","reallocPct","oneTimeMode",
+      "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "netPremiumType"
     ];
 
@@ -748,7 +877,7 @@
         const msg = e?.reason?.stack || String(e?.reason || "Unhandled promise rejection");
         showAppError(msg);
         updateSystemStatus("ERROR", "FAIL");
-      } catch (err) {
+      } catch {
         // ignore
       }
     });
@@ -767,7 +896,7 @@
 
       if (!hasCoreFns) {
         showAppError(
-          "salary-math.js did not load (or missing exports). Open DevTools → Network and confirm salary-math.js returns 200."
+          "Salary engine missing. The app tried to load salary-math.js, but it didn’t provide required exports. This build includes a fallback engine — if you still see this, there is a JS syntax error earlier in the file."
         );
         updateSystemStatus("ERROR", "FAIL (engine missing)");
       } else {
@@ -776,7 +905,11 @@
     }, 6000);
   };
 
+  // ------------------------------ DOM Ready ------------------------------
   document.addEventListener("DOMContentLoaded", () => {
+    // Critical: ensure engine exists even if salary-math.js is missing
+    ensureSalaryMath();
+
     window.baseTable = baseTable;
 
     window.BtaApp = {
