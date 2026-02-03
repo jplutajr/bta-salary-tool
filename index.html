@@ -179,11 +179,29 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   }
   .bee-ai-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,0.3);}
   .bee-ai-button .bee-icon{font-size:22px;}
-  .bee-ai-chat{
-    position:fixed;top:72px;right:24px;width:340px;max-height:75vh;background:#020617;color:#e5e7eb;
-    border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.6);display:none;flex-direction:column;
-    z-index:9999;border:1px solid #1f2937;
-  }
+ .bee-ai-chat{
+  position:fixed;
+  top:72px;
+  right:24px;
+  width:340px;
+  max-height:75vh;
+  background:#020617;
+  color:#e5e7eb;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(15,23,42,0.6);
+  display:none;
+  flex-direction:column;
+  z-index:9999;
+  border:1px solid #1f2937;
+
+  /* NEW — resize behavior */
+  resize: both;
+  overflow: auto;
+  min-width: 280px;
+  min-height: 220px;
+  max-width: min(92vw, 720px);
+  max-height: 85vh;
+}
   .bee-ai-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#0f172a;border-radius:12px 12px 0 0;font-size:.9rem;font-weight:600;}
   .bee-ai-close{background:transparent;border:none;color:#e5e7eb;font-size:16px;line-height:1;padding:0 4px;cursor:pointer;}
   .bee-ai-log{flex:1;padding:8px;overflow-y:auto;font-size:.85rem;background:#020617;}
