@@ -248,6 +248,25 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   #beeAiClear:hover{ background:#374151; }
   #beeAiSave{ background:#0ea5e9; }
   #beeAiSave:hover{ background:#0284c7; }
+  #beeAiResearch{ background:#a855f7; }
+#beeAiResearch:hover{ background:#9333ea; }
+
+#beeAiExpand{ background:#f59e0b; color:#111827; }
+#beeAiExpand:hover{ background:#d97706; color:#111827; }
+
+/* Fullscreen-ish expanded mode */
+.bee-ai-chat.is-expanded{
+  top: 16px !important;
+  right: 16px !important;
+  width: min(92vw, 900px) !important;
+  height: min(88vh, 900px) !important;
+  max-height: none !important;
+}
+
+.bee-ai-chat.is-expanded .bee-ai-log{
+  height: auto;
+  flex: 1;
+}
 
   .app-error{
     border:1px solid #fca5a5;
@@ -293,11 +312,14 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
     </div>
   </div>
 
-  <div class="bee-ai-actions-col">
-    <button type="button" id="beeAiSend">Send</button>
-    <button type="button" id="beeAiClear">Clear</button>
-    <button type="button" id="beeAiSave">Save PDF</button>
-  </div>
+ <div class="bee-ai-actions-col">
+  <button type="button" id="beeAiSend">Send</button>
+  <button type="button" id="beeAiResearch">Research URL</button>
+  <button type="button" id="beeAiExpand">Expand</button>
+  <button type="button" id="beeAiClear">Clear</button>
+  <button type="button" id="beeAiSave">Save PDF</button>
+</div>
+
 </div>
 
 </div>
