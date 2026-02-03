@@ -125,23 +125,34 @@ sendBtn?.addEventListener("click", async () => {
   // Optional: include salary table context so AI can answer with real numbers
   const tablesPayload = readRenderedTables();
   console.log("BEE tablesPayload:", tablesPayload);
-  if (!tablesPayload || !tablesPayload.tables?.length) {
+  // Cache the last good tables payload so Bee still works even if tables
+// are only visible in the new tab (not in the main DOM).
+if (tablesPayload?.tables?.length) {
+  window.__BEE_LAST_TABLES_PAYLOAD__ = tablesPayload;
+}
+
+const effectiveTablesPayload =
+  tablesPayload?.tables?.length
+    ? tablesPayload
+    : window.__BEE_LAST_TABLES_PAYLOAD__;
+
+// Hard stop if we still have nothing
+if (!effectiveTablesPayload?.tables?.length) {
   appendMessage(
     "Generate the salary table first (turn on 'Show A & B when generating'), then ask Bee.",
     "bot"
   );
   return;
 }
-
 const context = {
-  generatedAt: tablesPayload?.generatedAt || null,
-  toggles: tablesPayload?.toggles || {
+  generatedAt: effectiveTablesPayload.generatedAt || null,
+  toggles: effectiveTablesPayload.toggles || {
     hideTa: document.getElementById("renderArea")?.classList.contains("hide-ta") || false,
     showNet: document.getElementById("renderArea")?.classList.contains("show-net") || false,
     showDelta: document.getElementById("renderArea")?.classList.contains("show-delta") || false,
     premiumType: document.getElementById("netPremiumType")?.value || "family",
   },
-  tables: tablesPayload?.tables || [],
+  tables: effectiveTablesPayload.tables || [],
 
   // Lightweight “always available” context:
   roster: {
