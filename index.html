@@ -203,7 +203,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   max-height: 85vh;
 }
   .bee-ai-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#0f172a;border-radius:12px 12px 0 0;font-size:.9rem;font-weight:600;}
-  .bee-ai-close{background:transparent;border:none;color:#e5e7eb;font-size:16px;line-height:1;padding:0 4px;cursor:pointer;}
+  .bee-ai-header-btn{background:transparent;border:none;color:#e5e7eb;font-size:16px;line-height:1;padding:0 4px;cursor:pointer;}
   .bee-ai-log{flex:1;padding:8px;overflow-y:auto;font-size:.85rem;background:#020617;}
   .bee-ai-msg{margin:4px 0;display:flex;}
   .bee-ai-user{justify-content:flex-end;}
@@ -298,10 +298,16 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 </div>
 
 <div id="beeAiChat" class="bee-ai-chat">
-  <div class="bee-ai-header">
-    <span>Contract AI Assistant</span>
-    <button type="button" id="beeAiClose" class="bee-ai-close">&times;</button>
+ <div class="bee-ai-header">
+  <span>Contract AI Assistant</span>
+
+  <div style="display:flex; gap:6px; align-items:center;">
+    <button type="button" id="beeAiResearch" class="bee-ai-header-btn" title="Summarize a public URL">Research</button>
+    <button type="button" id="beeAiExpand" class="bee-ai-header-btn" title="Expand/collapse chat panel">Expand</button>
+    <button type="button" id="beeAiClose" class="bee-ai-header-btn" title="Close">&times;</button>
   </div>
+</div>
+
   <div id="beeAiLog" class="bee-ai-log"></div>
   <div class="bee-ai-input-row">
   <div class="bee-ai-input-col">
@@ -314,8 +320,6 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 
  <div class="bee-ai-actions-col">
   <button type="button" id="beeAiSend">Send</button>
-  <button type="button" id="beeAiResearch">Research URL</button>
-  <button type="button" id="beeAiExpand">Expand</button>
   <button type="button" id="beeAiClear">Clear</button>
   <button type="button" id="beeAiSave">Save PDF</button>
 </div>
