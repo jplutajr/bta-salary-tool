@@ -180,7 +180,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .bee-ai-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,0.3);}
   .bee-ai-button .bee-icon{font-size:22px;}
   .bee-ai-chat{
-    position:fixed;top:72px;right:24px;width:340px;max-height:65vh;background:#020617;color:#e5e7eb;
+    position:fixed;top:72px;right:24px;width:340px;max-height:75vh;background:#020617;color:#e5e7eb;
     border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.6);display:none;flex-direction:column;
     z-index:9999;border:1px solid #1f2937;
   }
@@ -194,10 +194,36 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .bee-ai-user .bee-ai-bubble{background:#4f46e5;color:#e5e7eb;border-bottom-right-radius:2px;}
   .bee-ai-bot .bee-ai-bubble{background:#111827;color:#e5e7eb;border-bottom-left-radius:2px;}
   .bee-ai-input-row{display:flex;gap:6px;padding:8px;border-top:1px solid #1e293b;background:#020617;border-radius:0 0 12px 12px;align-items:flex-end;}
-  #beeAiInput{flex:1;resize:none;font-size:.85rem;background:#020617;color:#e5e7eb;border:1px solid #1f2937;border-radius:8px;padding:4px 6px;}
+    .bee-ai-input-col{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
+  }
+    #beeAiInput{
+    width:100%;
+    min-height:84px;
+    resize:vertical;
+    font-size:.85rem;
+    background:#020617;
+    color:#e5e7eb;
+    border:1px solid #1f2937;
+    border-radius:8px;
+    padding:6px 8px;
+    overflow:auto;
+  }
   #beeAiInput::placeholder{color:#64748b;}
   .bee-ai-actions-col{display:flex;flex-direction:column;gap:4px;}
   .bee-ai-actions-col button{padding:4px 8px;font-size:.8rem;border-radius:8px;border:none;cursor:pointer;color:#e5e7eb;}
+    #bee-research-hint{
+    font-size:12px;
+    opacity:0.85;
+    line-height:1.2;
+    max-height:2.6em;
+    overflow:auto;
+    margin:0;
+  }
   #beeAiSend{ background:#22c55e; }
   #beeAiSend:hover{ background:#16a34a; }
   #beeAiClear{ background:#4b5563; }
@@ -241,19 +267,22 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   </div>
   <div id="beeAiLog" class="bee-ai-log"></div>
   <div class="bee-ai-input-row">
+  <div class="bee-ai-input-col">
     <textarea id="beeAiInput" rows="2" placeholder="Ask anything about this salary model, roster, or affordability..."></textarea>
-    <div id="bee-research-hint" style="font-size:12px; opacity:0.8; margin-top:6px;">
-  Research mode: type <code>research: https://example.com …</code> (Bee summarizes public URLs you provide — no web search.)
-</div>
-    
-    <div class="bee-ai-actions-col">
-      <button type="button" id="beeAiSend">Send</button>
-      <button type="button" id="beeAiClear">Clear</button>
-      <button type="button" id="beeAiSave">Save PDF</button>
+    <div id="bee-research-hint">
+      Research mode: type <code>research: https://example.com …</code>
+      (Bee summarizes public URLs you provide — no web search.)
     </div>
+  </div>
+
+  <div class="bee-ai-actions-col">
+    <button type="button" id="beeAiSend">Send</button>
+    <button type="button" id="beeAiClear">Clear</button>
+    <button type="button" id="beeAiSave">Save PDF</button>
   </div>
 </div>
 
+</div>
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
   <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2026 annual premiums.</p>
@@ -572,46 +601,11 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
             </select>
           </label>
         </div>
-        <div class="row">
-          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-            <input type="checkbox" id="toggleRosterHighlight" checked/>
-            Highlight roster cells
-          </label>
-          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-            <input type="checkbox" id="toggleRosterDetails"/>
-            Show roster names + cell cost
-          </label>
-        </div>
-<div class="row">
-  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-    <input type="checkbox" id="toggleHideTA" />
-    Hide TA column
-  </label>
-
-  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-    <input type="checkbox" id="toggleCompareY0" />
-    Compare to Year 0 (Δ line)
-  </label>
-</div>
-
-<div class="row">
-  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-    <input type="checkbox" id="toggleNetPay" />
-    Show salary after insurance (net)
-  </label>
-
-  <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-    Premium type
-    <select id="netPremiumType">
-      <option value="family" selected>Family</option>
-      <option value="individual">Individual</option>
-    </select>
-  </label>
-</div>
       </fieldset>
 
       <fieldset>
         <legend>Contract Payroll (not incremental)</legend>
+
         <div class="kvs">
           <div><div class="soft">Total (Y1–Y5)</div><div id="contractPayrollTotal" class="mono">—</div></div>
           <div><div class="soft">Year 1</div><div id="contractPayrollY1" class="mono">—</div></div>
@@ -842,8 +836,6 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   window.BEE_AI_ENDPOINT =
     "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
-<script src="bee-ai.js" defer></script>
-
 <script src="bee-ai.js" defer></script>
 
 </body>
