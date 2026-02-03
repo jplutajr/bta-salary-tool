@@ -4,11 +4,19 @@
   };
 
   const setChatOpen = (open) => {
-    const panel = document.getElementById("beeAiChat");
-    if (!panel) return;
-    state.isOpen = open;
-    panel.style.display = open ? "flex" : "none";
-  };
+  const panel = document.getElementById("beeAiChat");
+  if (!panel) return;
+
+  state.isOpen = open;
+  panel.style.display = open ? "flex" : "none";
+
+  // If closing, also collapse so it doesn't re-open huge unexpectedly
+  if (!open) {
+    panel.classList.remove("is-expanded");
+    const expandBtn = document.getElementById("beeAiExpand");
+    if (expandBtn) expandBtn.textContent = "Expand";
+  }
+};
 
   const toggleChat = () => {
     setChatOpen(!state.isOpen);
@@ -16,14 +24,26 @@
 
   const wireBeeUI = () => {
     const button = document.getElementById("beeAiButton");
+    const panel = document.getElementById("beeAiChat");
     const closeBtn = document.getElementById("beeAiClose");
     const clearBtn = document.getElementById("beeAiClear");
     const sendBtn = document.getElementById("beeAiSend");
+    const researchBtn = document.getElementById("beeAiResearch");
+    const expandBtn = document.getElementById("beeAiExpand");
     const saveBtn = document.getElementById("beeAiSave");
     const input = document.getElementById("beeAiInput");
     const log = document.getElementById("beeAiLog");
 
-    if (!button || !closeBtn || !log || !input) return;
+
+    if (!button || !panel || !closeBtn || !log || !input) return;
+    
+    // Keep Expand button label in sync with actual expanded state
+const syncExpandLabel = () => {
+  if (!expandBtn) return;
+  expandBtn.textContent = panel.classList.contains("is-expanded")
+    ? "Collapse"
+    : "Expand";
+};
 
     const appendMessage = (text, role) => {
       const row = document.createElement("div");
@@ -36,8 +56,31 @@
       log.scrollTop = log.scrollHeight;
     };
 
-    button.addEventListener("click", toggleChat);
-    closeBtn.addEventListener("click", () => setChatOpen(false));
+button.addEventListener("click", () => {
+  toggleChat();
+  syncExpandLabel();
+});
+    closeBtn.addEventListener("click", () => {
+  setChatOpen(false);
+  syncExpandLabel();
+});
+    // Research URL helper: prompts for a URL, then sends as "research: <url>"
+researchBtn?.addEventListener("click", () => {
+  const url = prompt("Paste a public URL to summarize:", "https://");
+  if (!url) return;
+  const cleaned = url.trim();
+  if (!cleaned) return;
+
+  // Put research command into input and send immediately
+  input.value = `research: ${cleaned}`;
+  sendBtn?.click();
+});
+
+// Expand/Collapse toggle
+expandBtn?.addEventListener("click", () => {
+  panel.classList.toggle("is-expanded");
+  syncExpandLabel();
+});
 
     clearBtn?.addEventListener("click", () => {
       log.innerHTML = "";
