@@ -97,18 +97,15 @@
 
   // Prefer app.js payload; fallback to DOM scrape; fallback to cached.
   const getBestTablesPayload = () => {
-    // 1) app.js should set this (best, includes raw numbers even if not rendered)
     const fromGetter = window.BtaAI?.getSalaryTablesPayload?.();
     if (fromGetter?.tables?.length) return fromGetter;
 
     const fromStored = window.BtaAI?.__lastTablesPayload;
     if (fromStored?.tables?.length) return fromStored;
 
-    // 2) try scraping DOM (works only if inline tables exist)
     const scraped = readRenderedTables();
     if (scraped?.tables?.length) return scraped;
 
-    // 3) fallback to last cached payload
     const cached =
       window.__BEE_LAST_TABLES_PAYLOAD__ ||
       window.BtaAI?.__beeLastTablesPayload ||
@@ -121,15 +118,11 @@
 
   const cacheTablesPayload = (payload) => {
     if (!payload?.tables?.length) return;
-
-    // cache in a few safe places
     window.__BEE_LAST_TABLES_PAYLOAD__ = payload;
-
-    // don't overwrite BtaAI; just stash on it if available
-    if (window.BtaAI) window.BtaAI.__beeLastTablesPayload = payload;
-
-    // also keep app.js location if it exists
-    if (window.BtaAI) window.BtaAI.__lastTablesPayload = payload;
+    if (window.BtaAI) {
+      window.BtaAI.__beeLastTablesPayload = payload;
+      window.BtaAI.__lastTablesPayload = payload;
+    }
   };
 
   const buildMarkdownSummary = (payload) => {
@@ -137,6 +130,7 @@
     const lines = [
       "# Salary Table Export (AI)",
       `Generated: ${payload.generatedAt}`,
+      `Mode: ${payload.mode || "unknown"}`,
       `Toggles: Hide TA=${payload.toggles?.hideTa}, Net=${payload.toggles?.showNet}, Delta=${payload.toggles?.showDelta}, Premium=${payload.toggles?.premiumType}`,
       ""
     ];
@@ -160,6 +154,16 @@
     });
 
     return lines.join("\n");
+  };
+
+  const downloadTextFile = (text, filename, mime = "text/plain;charset=utf-8") => {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   // ---------- main UI wiring ----------
@@ -203,7 +207,6 @@
       syncExpandLabel();
     });
 
-    // Research helper: primes input with "research: "
     researchBtn?.addEventListener("click", () => {
       if (!input.value.trim().toLowerCase().startsWith("research:")) {
         input.value = "research: ";
@@ -212,7 +215,6 @@
       input.focus();
     });
 
-    // Expand/Collapse toggle
     expandBtn?.addEventListener("click", () => {
       panel.classList.toggle("is-expanded");
       syncExpandLabel();
@@ -259,7 +261,6 @@
       appendMessage(text, "user");
       input.value = "";
 
-      // Get best available payload (app.js payload > DOM scrape > cached)
       const effectiveTablesPayload = getBestTablesPayload();
       if (!effectiveTablesPayload?.tables?.length) {
         appendMessage(
@@ -269,11 +270,9 @@
         return;
       }
 
-      // Cache it so Bee keeps working even if tables are hidden/new-window-only
       cacheTablesPayload(effectiveTablesPayload);
 
       const renderArea = document.getElementById("renderArea");
-
       const context = {
         generatedAt: effectiveTablesPayload.generatedAt || null,
         toggles: effectiveTablesPayload.toggles || {
@@ -283,12 +282,10 @@
           premiumType: document.getElementById("netPremiumType")?.value || "family"
         },
         tables: effectiveTablesPayload.tables || [],
-
         roster: {
           pastedCsv: document.getElementById("rosterText")?.value?.trim() || "",
           embeddedCsv: document.getElementById("embeddedRoster")?.value?.trim() || ""
         },
-
         page: {
           url: location.href,
           premiumType: document.getElementById("netPremiumType")?.value || "family"
@@ -322,13 +319,7 @@
       const text = Array.from(log.querySelectorAll(".bee-ai-bubble"))
         .map((el) => el.textContent)
         .join("\n\n");
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "bee-ai-log.txt";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      downloadTextFile(text, "bee-ai-log.txt", "text/plain;charset=utf-8");
     });
   };
 
@@ -339,16 +330,22 @@
 
     cacheTablesPayload(payload);
 
-    const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `bta_salary_table_export_${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    // 1) JSON (machine-readable)
+    downloadTextFile(
+      JSON.stringify(payload, null, 2),
+      `bta_salary_table_export_${Date.now()}.json`,
+      "application/json;charset=utf-8"
+    );
 
+    // 2) Markdown summary (human-readable)
     const markdown = buildMarkdownSummary(payload);
+    downloadTextFile(
+      markdown,
+      `bta_salary_table_export_${Date.now()}.md`,
+      "text/markdown;charset=utf-8"
+    );
+
+    // 3) Clipboard (best-effort)
     try {
       await navigator.clipboard.writeText(markdown);
     } catch {
@@ -367,12 +364,10 @@
   // ---------- boot ----------
   document.addEventListener("DOMContentLoaded", () => {
     try {
-      // CRITICAL: do NOT overwrite window.BtaAI (app.js may already define it)
       window.BtaAI = window.BtaAI || {};
       window.BtaAI.init = wireBeeUI;
       window.BtaAI.exportSalaryTables = exportSalaryTables;
 
-      // optional: keep a getter if app.js didn't define one
       if (typeof window.BtaAI.getSalaryTablesPayload !== "function") {
         window.BtaAI.getSalaryTablesPayload = () =>
           window.BtaAI.__lastTablesPayload ||
