@@ -563,7 +563,7 @@
   };
 
   // ------------------------------ Rendering ------------------------------
-  const renderSalaryTable = (schedules, years, title, hiPct) => {
+  const renderSalaryTable = (schedules, years, title, hiPct, opts = {}) => {
     const rosterTools = window.BtaRoster;
     const wrap = document.createElement("div");
     wrap.className = "card";
@@ -575,6 +575,12 @@
 
     years.forEach((year) => {
       const rosterMap = buildRosterCellMap(schedules, year);
+      const rosterOnly = !!opts.rosterOnly;
+      const stepsWithRoster = rosterOnly
+        ? Array.from(new Set(Array.from(rosterMap.keys()).map((k) => Number(String(k).split("|")[0]) || 0)))
+            .filter((n) => n >= 1 && n <= 22)
+            .sort((a, b) => a - b)
+        : null;
       const hiYearIdx = Math.max(1, year);
 
       const sub = document.createElement("div");
@@ -593,7 +599,18 @@
       table.appendChild(thead);
 
       const tbody = document.createElement("tbody");
-      for (let step = 1; step <= 22; step += 1) {
+
+      const stepsToRender = rosterOnly
+        ? (stepsWithRoster.length ? stepsWithRoster : [])
+        : Array.from({ length: 22 }, (_, i) => i + 1);
+
+      if (rosterOnly && !stepsToRender.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="${COLS.length + 1}" style="padding:10px; color:#475569">No roster entries were found for Year ${year}. Load a roster and try again.</td>`;
+        tbody.appendChild(tr);
+      }
+
+      for (const step of stepsToRender) {
         const tr = document.createElement("tr");
         const rowHtml = COLS.map((col) => {
           const value = schedules?.[year]?.[step]?.[col];
@@ -601,13 +618,16 @@
           const rosterEntry = rosterMap.get(`${step}|${col}`);
           const hasRoster = Boolean(rosterEntry);
 
+          // "Steps w/ roster only" mode: keep the grid, but only show numbers for cells that have roster.
+          const showCellValue = !rosterOnly || hasRoster;
+
           const premiumType = document.getElementById("netPremiumType")?.value || "family";
           const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
           const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
 
           const pct = hiPct?.[hiYearIdx] ?? 0;
-          const netValue = value == null ? null : Number((value - premium * pct).toFixed(2));
-          const deltaValue = value == null || baseValue == null ? null : value - baseValue;
+          const netValue = !showCellValue || value == null ? null : Number((value - premium * pct).toFixed(2));
+          const deltaValue = !showCellValue || value == null || baseValue == null ? null : value - baseValue;
 
           const detailText = hasRoster
             ? `Staff: ${rosterEntry.names.join(", ")}<br/>Total FTE: ${rosterEntry.totalFte.toFixed(2)}<br/>Cell total: ${money(rosterEntry.totalCost)}`
@@ -624,7 +644,7 @@
 
           return (
             `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>` +
-            `<span class="main">${value == null ? "—" : money(value)}</span>` +
+            `<span class="main">${!showCellValue || value == null ? "—" : money(value)}</span>` +
             deltaLine +
             netLine +
             (hasRoster ? `<div class="detail">${detailText}</div>` : "") +
@@ -659,6 +679,7 @@
     renderArea.innerHTML = "";
 
     const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
+    const rosterOnly = !!document.getElementById("showRosterStepsOnly")?.checked;
     const scenarioA = loadScenario("A");
     const scenarioB = loadScenario("B");
 
@@ -674,14 +695,18 @@
 
       const compareWrap = document.createElement("div");
       compareWrap.className = "compare-wrap";
-      compareWrap.appendChild(renderSalaryTable(scheduleA, years, "Salary Table — Scenario A", scenarioA.hiPct));
-      compareWrap.appendChild(renderSalaryTable(scheduleB, years, "Salary Table — Scenario B", scenarioB.hiPct));
+      compareWrap.appendChild(
+        renderSalaryTable(scheduleA, years, "Salary Table — Scenario A", scenarioA.hiPct, { rosterOnly })
+      );
+      compareWrap.appendChild(
+        renderSalaryTable(scheduleB, years, "Salary Table — Scenario B", scenarioB.hiPct, { rosterOnly })
+      );
       blocks.push(compareWrap);
 
       scheduleBlocks.push({ title: "Salary Table — Scenario A", schedules: scheduleA, hiPct: scenarioA.hiPct });
       scheduleBlocks.push({ title: "Salary Table — Scenario B", schedules: scheduleB, hiPct: scenarioB.hiPct });
     } else {
-      blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI", uiParams.hiPct));
+      blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI", uiParams.hiPct, { rosterOnly }));
       scheduleBlocks.push({ title: "Salary Table — Current UI", schedules: schedulesUI, hiPct: uiParams.hiPct });
     }
 
@@ -778,6 +803,134 @@
     }
   };
 
+  // ------------------------------ Report (PDF) ------------------------------
+  const generateReport = () => {
+    // Prefer jsPDF if present; fallback to printable HTML.
+    const JsPdf = window.jspdf?.jsPDF || window.jsPDF;
+    const hasPdf = !!JsPdf;
+    const rosterCount = (window.BtaRoster?.getRoster?.() || []).length;
+
+    const params = getUIParams();
+    const scenarioA = loadScenario("A");
+    const scenarioB = loadScenario("B");
+
+    const pct = (v) => `${(Number(v || 0) * 100).toFixed(2).replace(/\.00$/, "")}%`;
+    const hiLabel = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
+
+    const increases = [1, 2, 3, 4, 5].map((y) => [
+      `Y${y}`,
+      money(params.yFlat?.[y] || 0),
+      pct(params.yPct?.[y] || 0),
+      hiLabel(params.hiPct?.[y] || 0)
+    ]);
+
+    // Pull affordability table from DOM if available
+    const affRows = Array.from(document.querySelectorAll("#affordabilityTableBody tr")).map((tr) =>
+      Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim())
+    );
+
+    const recurringBannerText = document.getElementById("affordabilitySummaryRecurring")?.innerText?.trim() || "";
+    const cashBannerText = document.getElementById("affordabilitySummaryCash")?.innerText?.trim() || "";
+
+    if (!hasPdf) {
+      // HTML fallback
+      const w = window.open("", "_blank");
+      if (!w) return;
+      const html = `<!doctype html><html><head><meta charset="utf-8"/>
+        <title>BTA Report</title>
+        <style>
+          body{font-family:Arial,system-ui;margin:18px;color:#111}
+          h1{margin:0 0 6px}
+          .meta{color:#475569;margin:0 0 10px}
+          table{border-collapse:collapse;width:100%;margin:10px 0}
+          th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;white-space:nowrap}
+          thead th{background:#2d3748;color:#fff}
+          .block{margin:12px 0}
+          .note{color:#475569;font-size:12px}
+          button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
+        </style></head><body>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="window.print()">Print</button>
+          <button onclick="window.close()">Close</button>
+        </div>
+        <h1>BTA Salary Lookup — Report</h1>
+        <p class="meta">Generated: ${new Date().toLocaleString()} | Roster rows: ${rosterCount} | Scenarios saved: A=${scenarioA ? "yes" : "no"}, B=${scenarioB ? "yes" : "no"}</p>
+        <div class="block"><h3>Contract Inputs</h3>
+          <table><thead><tr><th>Year</th><th>Flat</th><th>%</th><th>HI %</th></tr></thead>
+          <tbody>${increases.map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
+        </div>
+        <div class="block"><h3>Affordability Summary</h3>
+          <pre>${(recurringBannerText + "\n\n" + cashBannerText).trim()}</pre>
+          ${affRows.length ? `<table><thead><tr><th>Year</th><th>Contract Payroll</th><th>Baseline Payroll</th><th>Incremental+Adders</th><th>Recurring Offsets</th><th>Net Impact (Recurring)</th><th>Base Cap</th><th>Recurring</th><th>Cash</th></tr></thead><tbody>${affRows.map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "<p class=\"note\">Affordability table not available. Load roster + ensure the affordability section is present.</p>"}
+        </div>
+        <p class="note">Tip: Use “Generate Salary Table” for the full schedule view (and print from the popup).</p>
+        </body></html>`;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      return;
+    }
+
+    const doc = new JsPdf({ orientation: "landscape", unit: "pt", format: "letter" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const left = 40;
+    let y = 40;
+
+    doc.setFontSize(18);
+    doc.text("BTA Salary Lookup — Report", left, y);
+    y += 18;
+    doc.setFontSize(10);
+    doc.text(
+      `Generated: ${new Date().toLocaleString()}   |   Roster rows: ${rosterCount}   |   Scenarios saved: A=${scenarioA ? "yes" : "no"}, B=${scenarioB ? "yes" : "no"}`,
+      left,
+      y
+    );
+    y += 16;
+
+    // Contract inputs table
+    if (typeof doc.autoTable === "function") {
+      doc.autoTable({
+        startY: y,
+        head: [["Year", "Flat", "%", "HI %"]],
+        body: increases,
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [45, 55, 72] }
+      });
+      y = doc.lastAutoTable.finalY + 16;
+    } else {
+      doc.text("Contract Inputs:", left, y);
+      y += 12;
+      increases.forEach((r) => {
+        doc.text(r.join("  |  "), left, y);
+        y += 11;
+      });
+      y += 8;
+    }
+
+    // Affordability summaries
+    doc.setFontSize(11);
+    doc.text("Affordability Summary", left, y);
+    y += 12;
+    doc.setFontSize(9);
+    const summaryText = (recurringBannerText + "\n\n" + cashBannerText).trim();
+    const wrap = doc.splitTextToSize(summaryText || "(no affordability summary)", pageW - left * 2);
+    doc.text(wrap, left, y);
+    y += Math.min(140, wrap.length * 11) + 8;
+
+    // Affordability table
+    if (affRows.length && typeof doc.autoTable === "function") {
+      doc.autoTable({
+        startY: y,
+        head: [["Year", "Contract Payroll", "Baseline Payroll", "Incremental+Adders", "Recurring Offsets", "Net Impact (Recurring)", "Base Cap", "Recurring", "Cash"]],
+        body: affRows,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [45, 55, 72] }
+      });
+    }
+
+    doc.save(`bta_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   // ------------------------------ Event wiring ------------------------------
   const safeAddListener = (id, event, handler) => {
     const el = document.getElementById(id);
@@ -786,6 +939,9 @@
 
   const wireCoreButtons = () => {
     safeAddListener("generateTableButton", "click", () => generateSalaryTable({ mode: "newWindow" }));
+
+    // Topbar "Report" button triggers a click on #buildReportButton.
+    safeAddListener("buildReportButton", "click", () => generateReport());
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
     safeAddListener("saveScenarioB", "click", () => saveScenario("B"));
@@ -917,6 +1073,14 @@
     safeAddListener("toggleHideTA", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
+
+    // Filter: Steps w/ roster only (affects generation)
+    safeAddListener("showRosterStepsOnly", "change", () => {
+      const renderArea = document.getElementById("renderArea");
+      if (renderArea && renderArea.children && renderArea.children.length) {
+        generateSalaryTable({ mode: "inline" });
+      }
+    });
 
     safeAddListener("netPremiumType", "change", () => {
       const renderArea = document.getElementById("renderArea");
