@@ -6,6 +6,8 @@
    *  - Robust HI contribution parsing (supports 19 or 0.19 inputs)
    *  - A2 behavior: tables open in new window, inline only hidden for newWindow
    *  - Adds .is-hidden style if your CSS doesn’t define it
+   *  - NEW: Always builds an AI-friendly salary table payload (even when table is new-window only)
+   *  - NEW: Print CSS tuned to fit wide tables (landscape + scaling)
    ***********************************************************************/
 
   // ------------------------------ Small CSS safety ------------------------------
@@ -25,7 +27,7 @@
   })();
 
   // ------------------------------ Constants ------------------------------
-  const BUILD_VERSION = "v0.5.1";
+  const BUILD_VERSION = "v0.5.2";
   const BUILD_TIME = new Date().toLocaleString();
 
   // 2025 premiums (annual)
@@ -107,15 +109,11 @@
     const s = String(raw ?? "").trim().replace("%", "");
     const v = Number(s);
     if (!Number.isFinite(v)) return 0;
-    // If it looks like 19, 20, 23 -> treat as percent
     if (v > 1) return clamp(v / 100, 0, 1);
-    // If it looks like 0.19 -> already a fraction
     return clamp(v, 0, 1);
   };
 
   // ------------------------------ SalaryMath fallback ------------------------------
-  // Your app boots by checking these functions exist. If salary-math.js fails to load,
-  // we provide them here so the app still works.
   const ensureSalaryMath = () => {
     if (window.SalaryMath && typeof window.SalaryMath === "object") {
       const sm = window.SalaryMath;
@@ -193,7 +191,6 @@
     };
 
     const runSelfCheckLocal = () => {
-      // Basic sanity: Step 10 M50 exists and Year0 salary is numeric
       const v = getBaseSalary(10, "M50");
       if (!Number.isFinite(v)) return { status: "FAIL", reason: "Base table missing Step10 M50" };
       return { status: "PASS" };
@@ -210,7 +207,6 @@
     };
   };
 
-  // Accessor used elsewhere
   const SalaryMath = () => window.SalaryMath || {};
 
   // ------------------------------ UI Params ------------------------------
@@ -221,7 +217,6 @@
     const yPct = [null, pct("year1"), pct("year2"), pct("year3"), pct("year4"), pct("year5")];
     const yFlat = [null, flat("flat1"), flat("flat2"), flat("flat3"), flat("flat4"), flat("flat5")];
 
-    // IMPORTANT: accept either 19 or 0.19 from dropdowns/inputs
     const contrib = (id) => normalizeHiPct(document.getElementById(id)?.value ?? "0.19");
     const hiPct = [
       null,
@@ -278,8 +273,6 @@
     setVal("flat4", String(payload.yFlat?.[4] ?? 1200));
     setVal("flat5", String(payload.yFlat?.[5] ?? 1200));
 
-    // Store as "percent-like" for UI, but accept both formats.
-    // If payload is 0.19, we convert to 19 for typical "19" input UIs.
     const toUiPct = (p) => {
       const v = Number(p ?? 0.19);
       return v <= 1 ? String(v * 100) : String(v);
@@ -381,6 +374,72 @@
     const s0 = clamp(baseStep, 1, 22);
     if (year <= 1) return s0;
     return clamp(s0 + (year - 1), 1, 22);
+  };
+
+  // ------------------------------ AI payload (numbers, not DOM) ------------------------------
+  const buildTablesPayload = ({ years, premiumType, compareMode, scheduleBlocks }) => {
+    const renderArea = document.getElementById("renderArea");
+    const hideTa = !!document.getElementById("toggleHideTA")?.checked;
+    const showNet = !!document.getElementById("toggleNetPay")?.checked;
+    const showDelta = !!document.getElementById("toggleCompareY0")?.checked;
+
+    const columns = COLS.filter((c) => !(hideTa && c === "TA"));
+
+    const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
+    const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+
+    const tables = [];
+    (scheduleBlocks || []).forEach((block) => {
+      const { title, schedules, hiPct } = block;
+      years.forEach((year) => {
+        const hiYearIdx = Math.max(1, year);
+        const pct = hiPct?.[hiYearIdx] ?? 0;
+
+        const rows = [];
+        for (let step = 1; step <= 22; step += 1) {
+          const cells = {};
+          for (const col of columns) {
+            const gross = schedules?.[year]?.[step]?.[col];
+            const base = schedules?.[0]?.[step]?.[col];
+            const delta = gross == null || base == null ? null : +(gross - base).toFixed(2);
+            const net = gross == null ? null : +(Number(gross) - premiumValue * Number(pct || 0)).toFixed(2);
+            cells[col] = { gross: gross == null ? null : +Number(gross).toFixed(2), delta, net };
+          }
+          rows.push({ step, cells });
+        }
+
+        tables.push({
+          title,
+          year,
+          columns,
+          premium: { type: premiumType, label: premiumLabel, annual: premiumValue },
+          hiPct: pct,
+          rows
+        });
+      });
+    });
+
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      mode: compareMode ? "compare" : "single",
+      toggles: {
+        hideTa,
+        showNet,
+        showDelta,
+        premiumType
+      },
+      tables
+    };
+
+    // Cache where bee-ai.js looks first
+    window.__BEE_LAST_TABLES_PAYLOAD__ = payload;
+    window.BtaAI = window.BtaAI || {};
+    window.BtaAI.__lastTablesPayload = payload;
+
+    // If renderArea exists, also annotate state (helps debugging)
+    if (renderArea) renderArea.dataset.lastPayloadAt = payload.generatedAt;
+
+    return payload;
   };
 
   // ------------------------------ UI widgets ------------------------------
@@ -596,9 +655,7 @@
     const renderArea = document.getElementById("renderArea");
     if (!renderArea) return;
 
-    // A2 rule: only hide inline render area for newWindow mode
     renderArea.classList.toggle("is-hidden", mode === "newWindow");
-
     renderArea.innerHTML = "";
 
     const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
@@ -609,6 +666,7 @@
     const schedulesUI = buildSchedules(uiParams);
 
     const blocks = [];
+    const scheduleBlocks = []; // used for AI payload
 
     if (compareOn && scenarioA && scenarioB) {
       const scheduleA = buildSchedules({ yPct: scenarioA.yPct, yFlat: scenarioA.yFlat, hiPct: scenarioA.hiPct });
@@ -619,14 +677,30 @@
       compareWrap.appendChild(renderSalaryTable(scheduleA, years, "Salary Table — Scenario A", scenarioA.hiPct));
       compareWrap.appendChild(renderSalaryTable(scheduleB, years, "Salary Table — Scenario B", scenarioB.hiPct));
       blocks.push(compareWrap);
+
+      scheduleBlocks.push({ title: "Salary Table — Scenario A", schedules: scheduleA, hiPct: scenarioA.hiPct });
+      scheduleBlocks.push({ title: "Salary Table — Scenario B", schedules: scheduleB, hiPct: scenarioB.hiPct });
     } else {
       blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI", uiParams.hiPct));
+      scheduleBlocks.push({ title: "Salary Table — Current UI", schedules: schedulesUI, hiPct: uiParams.hiPct });
     }
 
     blocks.forEach((block) => renderArea.appendChild(block));
 
     window.BtaAffordability?.computeAffordability?.();
     updateRosterDisplayFromToggles();
+
+    // Always build payload for Bee/export (works even if renderArea is hidden)
+    const premiumType = document.getElementById("netPremiumType")?.value || "family";
+    const payload = buildTablesPayload({
+      years,
+      premiumType,
+      compareMode: compareOn && scenarioA && scenarioB,
+      scheduleBlocks
+    });
+
+    // If bee-ai.js registered a cache hook, update it too
+    if (window.BtaAI) window.BtaAI.__beeLastTablesPayload = payload;
 
     if (mode === "newWindow") {
       const w = window.open("", "_blank");
@@ -654,10 +728,10 @@
           .banner.fail{border-color:#c53030}
           .table-container{overflow-x:auto;border:1px solid #ddd;border-radius:10px;margin:10px 0;background:#fff}
           table{border-collapse:collapse;width:100%;min-width:900px}
-          th,td{border:1px solid #ddd;padding:6px 8px;white-space:nowrap;font-size:12px}
+          th,td{border:1px solid #ddd;padding:6px 8px;white-space:nowrap;font-size:12px;vertical-align:top}
           thead th{background:#2d3748;color:#fff;position:sticky;top:0}
           h3{margin:10px 0 4px}
-          .btns{display:flex;gap:8px;margin:10px 0}
+          .btns{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
           button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
           .cell-has-roster{ background:#facc15 !important; }
           .cell-has-roster .main{ color:#78350f; }
@@ -669,6 +743,20 @@
           .show-net .net-line{display:block}
           .detail{display:none;margin-top:2px;font-size:.78rem;color:#334155;white-space:normal;line-height:1.15}
           .detail.show{display:block}
+
+          /* Print: landscape + shrink to fit */
+          @media print{
+            @page{ size: landscape; margin: 0.4in; }
+            html,body{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .btns{display:none !important;}
+            .table-container{overflow:visible !important;border:none !important}
+            table{min-width:0 !important;width:100% !important}
+            thead th{position:static !important}
+            th,td{font-size:8px !important;padding:3px 4px !important}
+            .detail{font-size:7px !important}
+            /* browser-dependent zoom; helps squeeze */
+            body{ zoom: 0.78; }
+          }
         </style>
         </head><body>
           <div class="btns">
@@ -678,6 +766,10 @@
           ${recurringBanner}
           ${cashBanner}
           <div class="${wrapperClass}">${renderArea.innerHTML}</div>
+          <script>
+            // keep payload accessible for debugging
+            window.__BTA_TABLES_PAYLOAD__ = ${JSON.stringify(payload).replace(/</g,"\\u003c")};
+          </script>
         </body></html>
       `;
       w.document.open();
@@ -693,7 +785,6 @@
   };
 
   const wireCoreButtons = () => {
-    // Generate table opens newWindow (A2)
     safeAddListener("generateTableButton", "click", () => generateSalaryTable({ mode: "newWindow" }));
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
@@ -827,12 +918,9 @@
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
 
-    // Premium type impacts net pay lines
     safeAddListener("netPremiumType", "change", () => {
-      // Only regenerate inline if user already has a table rendered somewhere.
       const renderArea = document.getElementById("renderArea");
       if (renderArea && renderArea.children && renderArea.children.length) {
-        // inline regen (won't open new tab)
         generateSalaryTable({ mode: "inline" });
       }
     });
@@ -907,10 +995,19 @@
 
   // ------------------------------ DOM Ready ------------------------------
   document.addEventListener("DOMContentLoaded", () => {
-    // Critical: ensure engine exists even if salary-math.js is missing
     ensureSalaryMath();
 
     window.baseTable = baseTable;
+
+    // Do NOT overwrite bee-ai.js exports if loaded first
+    window.BtaAI = window.BtaAI || {};
+    if (typeof window.BtaAI.getSalaryTablesPayload !== "function") {
+      window.BtaAI.getSalaryTablesPayload = () =>
+        window.BtaAI.__lastTablesPayload ||
+        window.BtaAI.__beeLastTablesPayload ||
+        window.__BEE_LAST_TABLES_PAYLOAD__ ||
+        null;
+    }
 
     window.BtaApp = {
       COLS,
