@@ -227,7 +227,16 @@
       contrib("contributionY5")
     ];
 
-    return { yPct, yFlat, hiPct };
+    const hiFlat = [
+      null,
+      clamp(parseFloat(document.getElementById("hiFlatY1")?.value || "0"), 0, 1e9),
+      clamp(parseFloat(document.getElementById("hiFlatY2")?.value || "0"), 0, 1e9),
+      clamp(parseFloat(document.getElementById("hiFlatY3")?.value || "0"), 0, 1e9),
+      clamp(parseFloat(document.getElementById("hiFlatY4")?.value || "0"), 0, 1e9),
+      clamp(parseFloat(document.getElementById("hiFlatY5")?.value || "0"), 0, 1e9)
+    ];
+
+    return { yPct, yFlat, hiPct, hiFlat };
   };
 
   const serializeScenarioFromUI = () => {
@@ -236,6 +245,8 @@
       yPct,
       yFlat,
       hiPct,
+      hiFlat,
+
       gfBase: +document.getElementById("gfBase")?.value || 0,
       gfGrowthPct: +document.getElementById("gfGrowthPct")?.value || 0,
       adderPct: +document.getElementById("adderPct")?.value || 0,
@@ -283,6 +294,12 @@
     setVal("contributionY3", toUiPct(payload.hiPct?.[3]));
     setVal("contributionY4", toUiPct(payload.hiPct?.[4]));
     setVal("contributionY5", toUiPct(payload.hiPct?.[5]));
+
+    setVal("hiFlatY1", String(payload.hiFlat?.[1] ?? 0));
+    setVal("hiFlatY2", String(payload.hiFlat?.[2] ?? 0));
+    setVal("hiFlatY3", String(payload.hiFlat?.[3] ?? 0));
+    setVal("hiFlatY4", String(payload.hiFlat?.[4] ?? 0));
+    setVal("hiFlatY5", String(payload.hiFlat?.[5] ?? 0));
 
     setVal("gfBase", String(payload.gfBase ?? ""));
     setVal("gfGrowthPct", String(payload.gfGrowthPct ?? ""));
@@ -977,7 +994,7 @@
       const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
       const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
 
-      const doOne = (label, schedules, hiPct) => {
+      const doOne = (label, schedules, hiPct, hiFlat) => {
         const effectiveStep = stepForYear(step, year);
         const gross = salaryAt(schedules, year, effectiveStep, col);
         if (gross == null) return `${label}: —`;
@@ -985,10 +1002,12 @@
 
         const sm = SalaryMath();
         const pct = hiPct?.[hiYearIdx] ?? 0;
-        const net =
+        const flatAdd = hiFlat?.[hiYearIdx] ?? 0;
+        const baseNet =
           typeof sm.computeHealthInsuranceNet === "function"
             ? sm.computeHealthInsuranceNet(gross, pct, premiumValue)
             : Number((gross - premiumValue * pct).toFixed(2));
+        const net = Number((baseNet - flatAdd).toFixed(2));
 
         return `${label}: Gross ${money(gross)} | Net (${premiumLabel} premium): ${money(net)}`;
       };
@@ -999,17 +1018,17 @@
 
       if (scenario === "A" || scenario === "both") {
         const sA = loadScenario("A");
-        if (sA) output.push(doOne("Scenario A", buildSchedules(sA), sA.hiPct));
+        if (sA) output.push(doOne("Scenario A", buildSchedules(sA), sA.hiPct, sA.hiFlat));
         else output.push("Scenario A: (not saved)");
       }
 
       if (scenario === "B" || scenario === "both") {
         const sB = loadScenario("B");
-        if (sB) output.push(doOne("Scenario B", buildSchedules(sB), sB.hiPct));
+        if (sB) output.push(doOne("Scenario B", buildSchedules(sB), sB.hiPct, sB.hiFlat));
         else output.push("Scenario B: (not saved)");
       }
 
-      if (scenario === "ui") output.push(doOne("Current UI", schedulesUI, paramsUI.hiPct));
+      if (scenario === "ui") output.push(doOne("Current UI", schedulesUI, paramsUI.hiPct, paramsUI.hiFlat));
 
       const el = document.getElementById("sl_out");
       if (el) el.textContent = output.join("\n").trim();
@@ -1097,6 +1116,7 @@
       "stateAidPct","addlRevenue","otherSavings","recurringSurplus",
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
+      "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",
       "netPremiumType"
     ];
 
