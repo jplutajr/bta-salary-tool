@@ -1,5 +1,6 @@
 (() => {
   let roster = [];
+  let rosterStats = { ignoredRows: 0, totalDataRows: 0 };
 
   const rosterStorageRawKey = "bta_roster_raw_csv";
   const rosterStorageParsedKey = "bta_roster_parsed";
@@ -130,58 +131,71 @@
     return rows;
   };
 
-  const parseCSV = (csvStr) => {
-    if (!csvStr) return [];
+  const parseCSVWithStats = (csvStr) => {
+    if (!csvStr) return { rows: [], ignoredRows: 0, totalDataRows: 0 };
     const candidates = [",", ";", "\t"];
     let rows = tryParseCsv(csvStr, ",");
     candidates.forEach((delim) => {
       const parsed = tryParseCsv(csvStr, delim);
-      if ((parsed?.[0] || []).length >= (rows?.[0] || []).length) {
-        rows = parsed;
-      }
+      if ((parsed?.[0] || []).length >= (rows?.[0] || []).length) rows = parsed;
     });
-    if (!rows.length) return [];
+    if (!rows.length) return { rows: [], ignoredRows: 0, totalDataRows: 0 };
+
     const header = rows[0].map((h) => String(h || "").trim());
     const findIdx = (names) => {
       const exactIdx = header.findIndex((h) => names.some((n) => new RegExp(`^${n}$`, "i").test(h)));
       if (exactIdx >= 0) return exactIdx;
       return header.findIndex((h) => names.some((n) => h.toLowerCase().includes(n.toLowerCase())));
     };
+
     const idxName = findIdx(["name", "employee name", "employee", "full name"]);
     const idxStep = findIdx(["step", "salary step", "current step"]);
     const idxColumn = findIdx(["column", "lane", "degree", "scale"]);
     const idxFTE = findIdx(["fte", "percent", "pct", "fte %", "fte pct"]);
+
     const out = [];
+    let ignored = 0;
+    const totalDataRows = Math.max(0, rows.length - 1);
 
     for (let r = 1; r < rows.length; r += 1) {
       const c = rows[r];
       const name = (idxName >= 0 ? c[idxName] : "").toString().trim();
-      if (!name) continue;
+      if (!name) { ignored += 1; continue; }
+
       const stepStr = (idxStep >= 0 ? c[idxStep] : "").toString().trim();
       const match = stepStr.match(/(\d{1,2})/);
       const step = match ? Math.max(1, Math.min(parseInt(match[1], 10), 22)) : null;
-      if (!step) continue;
+      if (!step) { ignored += 1; continue; }
+
       const columnRaw = (idxColumn >= 0 ? c[idxColumn] : "").toString().trim();
       const column = normScale(columnRaw);
+      if (!column) { ignored += 1; continue; }
+
       const fteRaw = (idxFTE >= 0 ? c[idxFTE] : "1").toString().trim();
       let fte = 1;
       if (/%$/.test(fteRaw)) fte = parseFloat(fteRaw) / 100;
       else if (!Number.isNaN(parseFloat(fteRaw))) fte = parseFloat(fteRaw);
       if (!(fte > 0)) fte = 1;
+
       out.push({ Name: name, Step: step, Column: column, FTE: fte });
     }
-    return out;
+
+    return { rows: out, ignoredRows: ignored, totalDataRows };
   };
+
+  const parseCSV = (csvStr) => parseCSVWithStats(csvStr).rows;
 
   const notifyRosterUpdated = () => {
     window.dispatchEvent(new CustomEvent("bta-roster-updated", { detail: { roster } }));
   };
 
   const applyRosterFromCSV = (rawCsv, sourceLabel) => {
-    const parsed = parseCSV(rawCsv);
-    roster = parsed || [];
+    const parsed = parseCSVWithStats(rawCsv);
+    roster = parsed?.rows || [];
+    rosterStats = { ignoredRows: parsed?.ignoredRows || 0, totalDataRows: parsed?.totalDataRows || 0 };
     saveRosterToStorage(rawCsv);
-    setRosterStatus(`${sourceLabel}: ${roster.length} rows loaded`);
+    const ignoredMsg = rosterStats.ignoredRows ? ` (${rosterStats.ignoredRows} ignored)` : "";
+    setRosterStatus(`${sourceLabel}: ${roster.length} rows loaded${ignoredMsg}`);
     notifyRosterUpdated();
   };
 
@@ -439,6 +453,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     window.BtaRoster = {
       getRoster: () => roster,
+      getRosterStats: () => rosterStats,
       setRoster: (nextRoster) => {
         roster = nextRoster || [];
         notifyRosterUpdated();
