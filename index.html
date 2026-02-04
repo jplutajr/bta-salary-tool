@@ -23,6 +23,21 @@ Changelog:
   fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .row > * { min-width:0; }
   .container{max-width:1200px;margin:auto;background:#fff;padding:18px 18px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:10px}
+
+  /* Top bar */
+  .topbar{position:sticky;top:0;z-index:50;background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+    padding:10px 12px;margin:10px 0 14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    box-shadow:0 1px 6px rgba(0,0,0,.06)}
+  .topbar-left,.topbar-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .topbar-btn{background:#0f172a}
+  .topbar-btn:hover{background:#020617}
+  .topbar-select{padding:6px;border:1px solid #cbd5e0;border-radius:8px;background:#fff}
+  .topbar-check{display:flex;gap:6px;align-items:center;font-weight:600;font-size:.9rem;color:var(--ink)}
+  .compact .table-container{border-radius:8px}
+  .compact table{min-width:740px}
+  .compact th,.compact td{padding:5px 6px;font-size:11px}
+
+
   h2{margin:0 0 8px}
   .form-container{
     display:grid;
@@ -325,6 +340,26 @@ Changelog:
 
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
+  <div class="topbar">
+    <div class="topbar-left">
+      <button type="button" class="topbar-btn" onclick="document.getElementById('generateTableButton')?.click()">Generate</button>
+      <button type="button" class="topbar-btn" onclick="document.getElementById('buildReportButton')?.click()">Report</button>
+      <button type="button" class="topbar-btn" onclick="document.getElementById('exportSalaryTableAI')?.click()">Export AI</button>
+    </div>
+    <div class="topbar-right">
+      <span class="hint">View:</span>
+      <label class="topbar-check"><input type="checkbox" id="showRosterStepsOnly"/> Steps w/ roster only</label>
+      <label class="topbar-check"><input type="checkbox" id="hideUnusedCols"/> Hide unused columns</label>
+      <label class="topbar-check"><input type="checkbox" id="toggleCompactTable"/> Compact</label>
+      <span class="hint">Open:</span>
+      <select id="generateMode" class="topbar-select">
+        <option value="newWindow" selected>New window</option>
+        <option value="inline">Inline</option>
+      </select>
+    </div>
+  </div>
+  <div id="validationBanner" class="banner" style="display:none"></div>
+
   <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2026 annual premiums.</p>
   <div id="appLoadError" class="app-error" style="display:none;">
     <div class="app-error-title">App failed to load</div>
