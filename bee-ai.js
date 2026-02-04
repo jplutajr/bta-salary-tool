@@ -1,214 +1,27 @@
 (() => {
-  const state = {
-    isOpen: false
-  };
+  const state = { isOpen: false };
 
   const setChatOpen = (open) => {
-  const panel = document.getElementById("beeAiChat");
-  if (!panel) return;
-
-  state.isOpen = open;
-  panel.style.display = open ? "flex" : "none";
-
-  // If closing, also collapse so it doesn't re-open huge unexpectedly
-  if (!open) {
-    panel.classList.remove("is-expanded");
-    const expandBtn = document.getElementById("beeAiExpand");
-    if (expandBtn) expandBtn.textContent = "Expand";
-  }
-};
-
-  const toggleChat = () => {
-    setChatOpen(!state.isOpen);
-  };
-
-  const wireBeeUI = () => {
-    const button = document.getElementById("beeAiButton");
     const panel = document.getElementById("beeAiChat");
-    const closeBtn = document.getElementById("beeAiClose");
-    const clearBtn = document.getElementById("beeAiClear");
-    const sendBtn = document.getElementById("beeAiSend");
-    const researchBtn = document.getElementById("beeAiResearch");
-    const expandBtn = document.getElementById("beeAiExpand");
-    const saveBtn = document.getElementById("beeAiSave");
-    const input = document.getElementById("beeAiInput");
-    const log = document.getElementById("beeAiLog");
+    if (!panel) return;
 
+    state.isOpen = open;
+    panel.style.display = open ? "flex" : "none";
 
-    if (!button || !panel || !closeBtn || !log || !input) return;
-    
-    // Keep Expand button label in sync with actual expanded state
-const syncExpandLabel = () => {
-  if (!expandBtn) return;
-  expandBtn.textContent = panel.classList.contains("is-expanded")
-    ? "Collapse"
-    : "Expand";
-};
-
-    const appendMessage = (text, role) => {
-      const row = document.createElement("div");
-      row.className = `bee-ai-msg ${role === "user" ? "bee-ai-user" : "bee-ai-bot"}`;
-      const bubble = document.createElement("div");
-      bubble.className = "bee-ai-bubble";
-      bubble.textContent = text;
-      row.appendChild(bubble);
-      log.appendChild(row);
-      log.scrollTop = log.scrollHeight;
-    };
-
-button.addEventListener("click", () => {
-  toggleChat();
-  syncExpandLabel();
-});
-    closeBtn.addEventListener("click", () => {
-  setChatOpen(false);
-  syncExpandLabel();
-});
-    // Research URL helper: prompts for a URL, then sends as "research: <url>"
-researchBtn?.addEventListener("click", () => {
-  // Put the cursor in the box with the correct prefix so the user can paste.
-  if (!input.value.trim().toLowerCase().startsWith("research:")) {
-    input.value = "research: ";
-  }
-  setChatOpen(true);
-  input.focus();
-});
-
-// Expand/Collapse toggle
-expandBtn?.addEventListener("click", () => {
-  panel.classList.toggle("is-expanded");
-  syncExpandLabel();
-});
-
-    clearBtn?.addEventListener("click", () => {
-      log.innerHTML = "";
-    });
-
-   const ASK_URL =
-  window.BEE_AI_ENDPOINT ||
-  "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
-
-const callAskApi = async ({ question, context }) => {
-  const res = await fetch(ASK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, context }),
-  });
-
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Ask API ${res.status}: ${t || res.statusText}`);
-  }
-
-  // Accept either plain text or JSON with common keys
-  const contentType = res.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    const data = await res.json();
-    return (
-      data.answer ||
-      data.response ||
-      data.text ||
-      data.message ||
-      JSON.stringify(data)
-    );
-  }
-  return await res.text();
-};
-
-sendBtn?.addEventListener("click", async () => {
-  const text = input.value.trim();
-  if (!text) return;
-
-  appendMessage(text, "user");
-  input.value = "";
-
-  // Optional: include salary table context so AI can answer with real numbers
-  const tablesPayload = readRenderedTables();
-  console.log("BEE tablesPayload:", tablesPayload);
-  // Cache the last good tables payload so Bee still works even if tables
-// are only visible in the new tab (not in the main DOM).
-if (tablesPayload?.tables?.length) {
-  window.__BEE_LAST_TABLES_PAYLOAD__ = tablesPayload;
-}
-
-const effectiveTablesPayload =
-  tablesPayload?.tables?.length
-    ? tablesPayload
-    : window.__BEE_LAST_TABLES_PAYLOAD__;
-
-// Hard stop if we still have nothing
-if (!effectiveTablesPayload?.tables?.length) {
-  appendMessage(
-    "Generate the salary table first (turn on 'Show A & B when generating'), then ask Bee.",
-    "bot"
-  );
-  return;
-}
-const context = {
-  generatedAt: effectiveTablesPayload.generatedAt || null,
-  toggles: effectiveTablesPayload.toggles || {
-    hideTa: document.getElementById("renderArea")?.classList.contains("hide-ta") || false,
-    showNet: document.getElementById("renderArea")?.classList.contains("show-net") || false,
-    showDelta: document.getElementById("renderArea")?.classList.contains("show-delta") || false,
-    premiumType: document.getElementById("netPremiumType")?.value || "family",
-  },
-  tables: effectiveTablesPayload.tables || [],
-
-  // Lightweight “always available” context:
-  roster: {
-    pastedCsv: document.getElementById("rosterText")?.value?.trim() || "",
-    embeddedCsv: document.getElementById("embeddedRoster")?.value?.trim() || "",
-  },
-
-  page: {
-    url: location.href,
-    premiumType: document.getElementById("netPremiumType")?.value || "family",
-  },
-};
-
-
-  // Simple “typing…” line
-  appendMessage("Thinking…", "bot");
-  const lastBubble = log.querySelector(".bee-ai-msg:last-child .bee-ai-bubble");
-
-  try {
-    const answer = await callAskApi({ question: text, context });
-    if (lastBubble) lastBubble.textContent = answer || "(empty response)";
-  } catch (err) {
-    if (lastBubble) {
-      lastBubble.textContent =
-        `Couldn’t reach Bee AI backend.\n` +
-        `Endpoint: ${ASK_URL}\n` +
-        `Error: ${err?.message || err}`;
+    // If closing, also collapse so it doesn't re-open huge unexpectedly
+    if (!open) {
+      panel.classList.remove("is-expanded");
+      const expandBtn = document.getElementById("beeAiExpand");
+      if (expandBtn) expandBtn.textContent = "Expand";
     }
-  }
-});
-
-
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        sendBtn?.click();
-      }
-    });
-
-    saveBtn?.addEventListener("click", () => {
-      const text = Array.from(log.querySelectorAll(".bee-ai-bubble"))
-        .map((el) => el.textContent)
-        .join("\n\n");
-      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "bee-ai-log.txt";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
   };
 
+  const toggleChat = () => setChatOpen(!state.isOpen);
+
+  // ---------- helpers ----------
   const parseMoney = (text) => {
     if (!text) return null;
-    const cleaned = text.replace(/[^0-9.-]+/g, "");
+    const cleaned = String(text).replace(/[^0-9.-]+/g, "");
     if (!cleaned) return null;
     const value = Number(cleaned);
     return Number.isFinite(value) ? value : null;
@@ -234,6 +47,7 @@ const context = {
         const match = label.textContent?.match(/Year\s+(\d+)/i);
         if (!match) return;
         const year = Number(match[1]);
+
         const table = label.parentElement?.nextElementSibling?.querySelector("table");
         if (!table) return;
 
@@ -246,62 +60,98 @@ const context = {
         const rows = Array.from(table.querySelectorAll("tbody tr")).map((row) => {
           const step = Number(row.querySelector("td")?.textContent?.trim() || "0");
           const cells = {};
+
           columns.forEach((col) => {
             const cell = row.querySelector(`td[data-col="${col}"]`);
             if (!cell) return;
+
             const gross = parseMoney(cell.querySelector(".main")?.textContent || "");
             const deltaText = cell.querySelector(".delta-line")?.textContent || "";
             const netText = cell.querySelector(".net-line")?.textContent || "";
+
             const delta = showDelta ? parseMoney(deltaText) : null;
             const net = showNet ? parseMoney(netText) : null;
+
             cells[col] = {
               gross,
               net: showNet ? net : null,
               delta: showDelta ? delta : null
             };
           });
+
           return { step, cells };
         });
 
-        results.push({
-          title,
-          year,
-          columns,
-          rows
-        });
+        results.push({ title, year, columns, rows });
       });
     });
 
+    if (!results.length) return null;
+
     return {
       generatedAt: new Date().toISOString(),
-      toggles: {
-        hideTa,
-        showNet,
-        showDelta,
-        premiumType
-      },
+      toggles: { hideTa, showNet, showDelta, premiumType },
       tables: results
     };
   };
 
+  // Prefer app.js payload; fallback to DOM scrape; fallback to cached.
+  const getBestTablesPayload = () => {
+    // 1) app.js should set this (best, includes raw numbers even if not rendered)
+    const fromGetter = window.BtaAI?.getSalaryTablesPayload?.();
+    if (fromGetter?.tables?.length) return fromGetter;
+
+    const fromStored = window.BtaAI?.__lastTablesPayload;
+    if (fromStored?.tables?.length) return fromStored;
+
+    // 2) try scraping DOM (works only if inline tables exist)
+    const scraped = readRenderedTables();
+    if (scraped?.tables?.length) return scraped;
+
+    // 3) fallback to last cached payload
+    const cached =
+      window.__BEE_LAST_TABLES_PAYLOAD__ ||
+      window.BtaAI?.__beeLastTablesPayload ||
+      null;
+
+    if (cached?.tables?.length) return cached;
+
+    return null;
+  };
+
+  const cacheTablesPayload = (payload) => {
+    if (!payload?.tables?.length) return;
+
+    // cache in a few safe places
+    window.__BEE_LAST_TABLES_PAYLOAD__ = payload;
+
+    // don't overwrite BtaAI; just stash on it if available
+    if (window.BtaAI) window.BtaAI.__beeLastTablesPayload = payload;
+
+    // also keep app.js location if it exists
+    if (window.BtaAI) window.BtaAI.__lastTablesPayload = payload;
+  };
+
   const buildMarkdownSummary = (payload) => {
-    if (!payload) return "No salary tables are rendered.";
+    if (!payload) return "No salary tables are available.";
     const lines = [
       "# Salary Table Export (AI)",
       `Generated: ${payload.generatedAt}`,
-      `Toggles: Hide TA=${payload.toggles.hideTa}, Net=${payload.toggles.showNet}, Delta=${payload.toggles.showDelta}, Premium=${payload.toggles.premiumType}`,
+      `Toggles: Hide TA=${payload.toggles?.hideTa}, Net=${payload.toggles?.showNet}, Delta=${payload.toggles?.showDelta}, Premium=${payload.toggles?.premiumType}`,
       ""
     ];
 
-    payload.tables.forEach((table) => {
+    (payload.tables || []).forEach((table) => {
       lines.push(`## ${table.title} — Year ${table.year}`);
-      lines.push(`Columns: ${table.columns.join(", ")}`);
-      lines.push(`Rows: ${table.rows.length}`);
-      const sample = table.rows.slice(0, 3).map((row) => {
-        const firstCol = table.columns[0];
-        const value = row.cells[firstCol]?.gross ?? "—";
+      lines.push(`Columns: ${(table.columns || []).join(", ")}`);
+      lines.push(`Rows: ${(table.rows || []).length}`);
+
+      const sample = (table.rows || []).slice(0, 3).map((row) => {
+        const firstCol = (table.columns || [])[0];
+        const value = row?.cells?.[firstCol]?.gross ?? "—";
         return `- Step ${row.step}: ${firstCol} gross ${value}`;
       });
+
       if (sample.length) {
         lines.push("Sample:");
         lines.push(...sample);
@@ -312,9 +162,182 @@ const context = {
     return lines.join("\n");
   };
 
+  // ---------- main UI wiring ----------
+  const wireBeeUI = () => {
+    const button = document.getElementById("beeAiButton");
+    const panel = document.getElementById("beeAiChat");
+    const closeBtn = document.getElementById("beeAiClose");
+    const clearBtn = document.getElementById("beeAiClear");
+    const sendBtn = document.getElementById("beeAiSend");
+    const researchBtn = document.getElementById("beeAiResearch");
+    const expandBtn = document.getElementById("beeAiExpand");
+    const saveBtn = document.getElementById("beeAiSave");
+    const input = document.getElementById("beeAiInput");
+    const log = document.getElementById("beeAiLog");
+
+    if (!button || !panel || !closeBtn || !log || !input) return;
+
+    const syncExpandLabel = () => {
+      if (!expandBtn) return;
+      expandBtn.textContent = panel.classList.contains("is-expanded") ? "Collapse" : "Expand";
+    };
+
+    const appendMessage = (text, role) => {
+      const row = document.createElement("div");
+      row.className = `bee-ai-msg ${role === "user" ? "bee-ai-user" : "bee-ai-bot"}`;
+      const bubble = document.createElement("div");
+      bubble.className = "bee-ai-bubble";
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+    };
+
+    button.addEventListener("click", () => {
+      toggleChat();
+      syncExpandLabel();
+    });
+
+    closeBtn.addEventListener("click", () => {
+      setChatOpen(false);
+      syncExpandLabel();
+    });
+
+    // Research helper: primes input with "research: "
+    researchBtn?.addEventListener("click", () => {
+      if (!input.value.trim().toLowerCase().startsWith("research:")) {
+        input.value = "research: ";
+      }
+      setChatOpen(true);
+      input.focus();
+    });
+
+    // Expand/Collapse toggle
+    expandBtn?.addEventListener("click", () => {
+      panel.classList.toggle("is-expanded");
+      syncExpandLabel();
+    });
+
+    clearBtn?.addEventListener("click", () => {
+      log.innerHTML = "";
+    });
+
+    const ASK_URL =
+      window.BEE_AI_ENDPOINT ||
+      "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
+
+    const callAskApi = async ({ question, context }) => {
+      const res = await fetch(ASK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, context })
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Ask API ${res.status}: ${t || res.statusText}`);
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        return (
+          data.answer ||
+          data.response ||
+          data.text ||
+          data.message ||
+          JSON.stringify(data)
+        );
+      }
+      return await res.text();
+    };
+
+    sendBtn?.addEventListener("click", async () => {
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMessage(text, "user");
+      input.value = "";
+
+      // Get best available payload (app.js payload > DOM scrape > cached)
+      const effectiveTablesPayload = getBestTablesPayload();
+      if (!effectiveTablesPayload?.tables?.length) {
+        appendMessage(
+          "Generate the salary table first (and if comparing, turn on 'Show A & B when generating'), then ask Bee.",
+          "bot"
+        );
+        return;
+      }
+
+      // Cache it so Bee keeps working even if tables are hidden/new-window-only
+      cacheTablesPayload(effectiveTablesPayload);
+
+      const renderArea = document.getElementById("renderArea");
+
+      const context = {
+        generatedAt: effectiveTablesPayload.generatedAt || null,
+        toggles: effectiveTablesPayload.toggles || {
+          hideTa: renderArea?.classList.contains("hide-ta") || false,
+          showNet: renderArea?.classList.contains("show-net") || false,
+          showDelta: renderArea?.classList.contains("show-delta") || false,
+          premiumType: document.getElementById("netPremiumType")?.value || "family"
+        },
+        tables: effectiveTablesPayload.tables || [],
+
+        roster: {
+          pastedCsv: document.getElementById("rosterText")?.value?.trim() || "",
+          embeddedCsv: document.getElementById("embeddedRoster")?.value?.trim() || ""
+        },
+
+        page: {
+          url: location.href,
+          premiumType: document.getElementById("netPremiumType")?.value || "family"
+        }
+      };
+
+      appendMessage("Thinking…", "bot");
+      const lastBubble = log.querySelector(".bee-ai-msg:last-child .bee-ai-bubble");
+
+      try {
+        const answer = await callAskApi({ question: text, context });
+        if (lastBubble) lastBubble.textContent = answer || "(empty response)";
+      } catch (err) {
+        if (lastBubble) {
+          lastBubble.textContent =
+            `Couldn’t reach Bee AI backend.\n` +
+            `Endpoint: ${ASK_URL}\n` +
+            `Error: ${err?.message || err}`;
+        }
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendBtn?.click();
+      }
+    });
+
+    saveBtn?.addEventListener("click", () => {
+      const text = Array.from(log.querySelectorAll(".bee-ai-bubble"))
+        .map((el) => el.textContent)
+        .join("\n\n");
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "bee-ai-log.txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  };
+
+  // ---------- export ----------
   const exportSalaryTables = async () => {
-    const payload = readRenderedTables();
+    const payload = getBestTablesPayload();
     if (!payload) return;
+
+    cacheTablesPayload(payload);
 
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -328,8 +351,8 @@ const context = {
     const markdown = buildMarkdownSummary(payload);
     try {
       await navigator.clipboard.writeText(markdown);
-    } catch (e) {
-      // fail silently
+    } catch {
+      // ignore
     }
   };
 
@@ -341,15 +364,26 @@ const context = {
     });
   };
 
+  // ---------- boot ----------
   document.addEventListener("DOMContentLoaded", () => {
     try {
-      window.BtaAI = {
-        init: wireBeeUI,
-        exportSalaryTables
-      };
+      // CRITICAL: do NOT overwrite window.BtaAI (app.js may already define it)
+      window.BtaAI = window.BtaAI || {};
+      window.BtaAI.init = wireBeeUI;
+      window.BtaAI.exportSalaryTables = exportSalaryTables;
+
+      // optional: keep a getter if app.js didn't define one
+      if (typeof window.BtaAI.getSalaryTablesPayload !== "function") {
+        window.BtaAI.getSalaryTablesPayload = () =>
+          window.BtaAI.__lastTablesPayload ||
+          window.BtaAI.__beeLastTablesPayload ||
+          window.__BEE_LAST_TABLES_PAYLOAD__ ||
+          null;
+      }
+
       wireBeeUI();
       wireExportButton();
-    } catch (e) {
+    } catch {
       // fail silently
     }
   });
