@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
 Changelog:
@@ -18,18 +19,18 @@ Changelog:
   }
   body{font-family:Arial,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:18px;background:#f5f5f5;color:var(--ink)}
   html, body { max-width:100%; overflow-x:hidden; }
-*, *::before, *::after { box-sizing:border-box; }
-fieldset, .form-column, .row { min-width:0; max-width:100%; }
-.row > * { min-width:0; }
+  *, *::before, *::after { box-sizing:border-box; }
+  fieldset, .form-column, .row { min-width:0; max-width:100%; }
+  .row > * { min-width:0; }
   .container{max-width:1200px;margin:auto;background:#fff;padding:18px 18px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:10px}
   h2{margin:0 0 8px}
-.form-container{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap:18px;
-  margin-bottom:16px;
-}
-.form-column{min-width:0;}
+  .form-container{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap:18px;
+    margin-bottom:16px;
+  }
+  .form-column{min-width:0;}
   fieldset{border:1px solid #e2e8f0;padding:10px 12px;border-radius:8px;background:#fafafa}
   legend{font-weight:700;padding:0 6px}
   .form-group{margin-bottom:8px}
@@ -46,26 +47,26 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   /* =========================
      TABLE FIX (NO SQUISH / NO SPILL)
      ========================= */
-.table-container{
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  margin: 6px 0 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #fff;
-  box-sizing: border-box;
-}
+  .table-container{
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    margin: 6px 0 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    box-sizing: border-box;
+  }
 
   /* Make the table as wide as it needs, then scroll horizontally */
-.table-container table{
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 900px;   /* forces horizontal scroll inside container */
-  table-layout: auto;
-}
+  .table-container table{
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 900px;   /* forces horizontal scroll inside container */
+    table-layout: auto;
+  }
 
   .table-container thead th{
     position:sticky;
@@ -124,8 +125,8 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .sys-status{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px 12px;margin:8px 0}
   .sys-left{display:flex;flex-direction:column;gap:2px}
   .sys-left{min-width:0;}
-.sys-status *{min-width:0;}
-.mono{overflow-wrap:anywhere; word-break:break-word;}
+  .sys-status *{min-width:0;}
+  .mono{overflow-wrap:anywhere; word-break:break-word;}
   .sys-title{font-weight:700}
   .sys-small{font-size:.85rem;color:var(--muted)}
   .sys-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;font-weight:700;background:#e2e8f0;color:#111827}
@@ -155,15 +156,17 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
     background:#e2e8f0;color:#111827;
   }
 
-  /* PRINT FIX: prevent squish/merge */
+  /* PRINT FIX (main page print): fit wide tables better */
   @media print{
-    body{background:#fff;margin:0}
-    .actions, .banner, .compare-head{display:none !important;}
+    @page { size: landscape; margin: 0.4in; }
+    html, body{background:#fff;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .actions, .banner, .compare-head, .bee-ai-button, .bee-ai-chat, .roster-card, .lookup-card, .sys-status{display:none !important;}
     .table-container{overflow:visible !important;border:none !important}
+    .table-container table{min-width:0 !important}
     table{table-layout:auto !important;width:100% !important}
-    th,td{font-size:9px !important;padding:4px !important}
-    td .main{font-size:9px !important}
-    .detail{font-size:8px !important}
+    th,td{font-size:8px !important;padding:3px 4px !important}
+    td .main{font-size:8px !important}
+    .detail{font-size:7px !important}
     thead th{position:static !important}
     .compare-wrap{display:block !important}
     .card{page-break-inside:avoid}
@@ -179,29 +182,28 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   }
   .bee-ai-button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,0.3);}
   .bee-ai-button .bee-icon{font-size:22px;}
- .bee-ai-chat{
-  position:fixed;
-  top:72px;
-  right:24px;
-  width:340px;
-  max-height:75vh;
-  background:#020617;
-  color:#e5e7eb;
-  border-radius:12px;
-  box-shadow:0 6px 18px rgba(15,23,42,0.6);
-  display:none;
-  flex-direction:column;
-  z-index:9999;
-  border:1px solid #1f2937;
+  .bee-ai-chat{
+    position:fixed;
+    top:72px;
+    right:24px;
+    width:340px;
+    max-height:75vh;
+    background:#020617;
+    color:#e5e7eb;
+    border-radius:12px;
+    box-shadow:0 6px 18px rgba(15,23,42,0.6);
+    display:none;
+    flex-direction:column;
+    z-index:9999;
+    border:1px solid #1f2937;
 
-  /* NEW — resize behavior */
-  resize: both;
-  overflow: auto;
-  min-width: 280px;
-  min-height: 220px;
-  max-width: min(92vw, 720px);
-  max-height: 85vh;
-}
+    resize: both;
+    overflow: auto;
+    min-width: 280px;
+    min-height: 220px;
+    max-width: min(92vw, 720px);
+    max-height: 85vh;
+  }
   .bee-ai-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#0f172a;border-radius:12px 12px 0 0;font-size:.9rem;font-weight:600;}
   .bee-ai-header-btn{background:transparent;border:none;color:#e5e7eb;font-size:16px;line-height:1;padding:0 4px;cursor:pointer;}
   .bee-ai-log{flex:1;padding:8px;overflow-y:auto;font-size:.85rem;background:#020617;}
@@ -212,14 +214,14 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .bee-ai-user .bee-ai-bubble{background:#4f46e5;color:#e5e7eb;border-bottom-right-radius:2px;}
   .bee-ai-bot .bee-ai-bubble{background:#111827;color:#e5e7eb;border-bottom-left-radius:2px;}
   .bee-ai-input-row{display:flex;gap:6px;padding:8px;border-top:1px solid #1e293b;background:#020617;border-radius:0 0 12px 12px;align-items:flex-end;}
-    .bee-ai-input-col{
+  .bee-ai-input-col{
     flex:1;
     display:flex;
     flex-direction:column;
     gap:6px;
     min-width:0;
   }
-    #beeAiInput{
+  #beeAiInput{
     width:100%;
     min-height:84px;
     resize:vertical;
@@ -234,7 +236,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   #beeAiInput::placeholder{color:#64748b;}
   .bee-ai-actions-col{display:flex;flex-direction:column;gap:4px;}
   .bee-ai-actions-col button{padding:4px 8px;font-size:.8rem;border-radius:8px;border:none;cursor:pointer;color:#e5e7eb;}
-    #bee-research-hint{
+  #bee-research-hint{
     font-size:12px;
     opacity:0.85;
     line-height:1.2;
@@ -249,24 +251,18 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   #beeAiSave{ background:#0ea5e9; }
   #beeAiSave:hover{ background:#0284c7; }
   #beeAiResearch{ background:#a855f7; }
-#beeAiResearch:hover{ background:#9333ea; }
+  #beeAiResearch:hover{ background:#9333ea; }
+  #beeAiExpand{ background:#f59e0b; color:#111827; }
+  #beeAiExpand:hover{ background:#d97706; color:#111827; }
 
-#beeAiExpand{ background:#f59e0b; color:#111827; }
-#beeAiExpand:hover{ background:#d97706; color:#111827; }
-
-/* Fullscreen-ish expanded mode */
-.bee-ai-chat.is-expanded{
-  top: 16px !important;
-  right: 16px !important;
-  width: min(92vw, 900px) !important;
-  height: min(88vh, 900px) !important;
-  max-height: none !important;
-}
-
-.bee-ai-chat.is-expanded .bee-ai-log{
-  height: auto;
-  flex: 1;
-}
+  .bee-ai-chat.is-expanded{
+    top: 16px !important;
+    right: 16px !important;
+    width: min(92vw, 900px) !important;
+    height: min(88vh, 900px) !important;
+    max-height: none !important;
+  }
+  .bee-ai-chat.is-expanded .bee-ai-log{height: auto;flex: 1;}
 
   .app-error{
     border:1px solid #fca5a5;
@@ -281,8 +277,7 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   .app-error-actions button{background:#991b1b}
   .app-error-actions button:hover{background:#7f1d1d}
   /* Hide inline salary table when using new-window generation (Bee can still read it) */
-#renderArea.is-hidden { display: none; }
-  
+  #renderArea.is-hidden { display: none; }
 </style>
 
 <!-- PDF libs -->
@@ -301,35 +296,33 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
 </div>
 
 <div id="beeAiChat" class="bee-ai-chat">
- <div class="bee-ai-header">
-  <span>Contract AI Assistant</span>
-
-  <div style="display:flex; gap:6px; align-items:center;">
-    <button type="button" id="beeAiResearch" class="bee-ai-header-btn" title="Summarize a public URL">Research</button>
-    <button type="button" id="beeAiExpand" class="bee-ai-header-btn" title="Expand/collapse chat panel">Expand</button>
-    <button type="button" id="beeAiClose" class="bee-ai-header-btn" title="Close">&times;</button>
-  </div>
-</div>
-
-  <div id="beeAiLog" class="bee-ai-log"></div>
-  <div class="bee-ai-input-row">
-  <div class="bee-ai-input-col">
-    <textarea id="beeAiInput" rows="2" placeholder="Ask anything about this salary model, roster, or affordability..."></textarea>
-    <div id="bee-research-hint">
-      Research mode: type <code>research: https://example.com …</code>
-      (Bee summarizes public URLs you provide — no web search.)
+  <div class="bee-ai-header">
+    <span>Contract AI Assistant</span>
+    <div style="display:flex; gap:6px; align-items:center;">
+      <button type="button" id="beeAiResearch" class="bee-ai-header-btn" title="Summarize a public URL">Research</button>
+      <button type="button" id="beeAiExpand" class="bee-ai-header-btn" title="Expand/collapse chat panel">Expand</button>
+      <button type="button" id="beeAiClose" class="bee-ai-header-btn" title="Close">&times;</button>
     </div>
   </div>
 
- <div class="bee-ai-actions-col">
-  <button type="button" id="beeAiSend">Send</button>
-  <button type="button" id="beeAiClear">Clear</button>
-  <button type="button" id="beeAiSave">Save PDF</button>
+  <div id="beeAiLog" class="bee-ai-log"></div>
+  <div class="bee-ai-input-row">
+    <div class="bee-ai-input-col">
+      <textarea id="beeAiInput" rows="2" placeholder="Ask anything about this salary model, roster, or affordability..."></textarea>
+      <div id="bee-research-hint">
+        Research mode: type <code>research: https://example.com …</code>
+        (Bee summarizes public URLs you provide — no web search.)
+      </div>
+    </div>
+
+    <div class="bee-ai-actions-col">
+      <button type="button" id="beeAiSend">Send</button>
+      <button type="button" id="beeAiClear">Clear</button>
+      <button type="button" id="beeAiSave">Save Log</button>
+    </div>
+  </div>
 </div>
 
-</div>
-
-</div>
 <div class="container">
   <h2>BTA Salary Lookup — NYS Recurring General Fund Only</h2>
   <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong>. No steps beyond 22. Health-insurance views use 2026 annual premiums.</p>
@@ -677,20 +670,15 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
       <fieldset>
         <legend>District Affordability</legend>
         <div class="form-group"><label>Baseline Budget (GF $)</label>
-          <!-- ST-3 / SAMS A4 (2024-25 projected): TOTAL GENERAL FUND EXPENDITURES & INTERFUND TRANSFERS = 20,092,568 -->
           <input type="number" id="budget" value="20092568" step="1"/>
         </div>
         <div class="form-group"><label>Max Allowable Budget Increase (%)</label>
           <input type="number" id="maxBudgetPct" value="2" step="0.01"/>
         </div>
         <div class="form-group"><label>Max Allowable Budget Increase ($)</label>
-          <!-- 2% of 20,092,568 = 401,851.36 (rounded) -->
           <input type="number" id="maxBudgetFlat" value="401851" step="1"/>
         </div>
         <div class="form-group"><label>State Aid Growth (%/yr)</label>
-          <!-- Derived as state aid increase (2025-26 vs 2024-25) / baseline budget:
-               Total State Aid: 1,017,614 - 785,740 = 231,874
-               231,874 / 20,092,568 = 0.01154 => 1.15% -->
           <input type="number" id="stateAidPct" value="1.15" step="0.01"/>
         </div>
         <div class="form-group"><label>Additional Revenue ($/yr)</label>
@@ -814,9 +802,6 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
     </div>
   </div>
 
-  <!-- ===========================
-       STAFF LOOKUP (FIX ADDED)
-       =========================== -->
   <div class="lookup-card" id="staffLookup">
     <h3>Staff Salary Lookup</h3>
     <div class="row">
@@ -848,9 +833,6 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
     <div id="sl_explain_out" class="soft"></div>
   </div>
 
-  <!-- ===========================
-       ROSTER EXPORTS (FIX ADDED)
-       =========================== -->
   <div class="lookup-card">
     <h3>Roster Exports</h3>
     <div class="row">
@@ -873,16 +855,16 @@ fieldset, .form-column, .row { min-width:0; max-width:100%; }
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-01-20-1" defer></script>
+<script src="salary-math.js?v=2026-02-04-1" defer></script>
 <script src="roster.js" defer></script>
 <script src="affordability.js" defer></script>
-<script src="app.js" defer></script>
+<script src="app.js?v=2026-02-04-1" defer></script>
 
 <script>
   window.BEE_AI_ENDPOINT =
     "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
-<script src="bee-ai.js" defer></script>
+<script src="bee-ai.js?v=2026-02-04-1" defer></script>
 
 </body>
 </html>
