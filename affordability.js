@@ -1,4 +1,4 @@
-(() => {
+ (() => {
   const computeAffordability = () => {
     const app = window.BtaApp;
     if (!app) return;
