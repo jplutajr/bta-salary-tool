@@ -320,11 +320,25 @@
   const SCENARIO_KEY_A = "bta_scenario_A_v1";
   const SCENARIO_KEY_B = "bta_scenario_B_v1";
 
+  const formatSavedAt = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) return "";
+    // compact, local
+    return d.toLocaleString(undefined, { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+  };
+
   const saveScenario = (which) => {
+    // Always overwrite. Track existence only for a helpful status message.
+    const existing = loadScenario(which);
+
     const payload = serializeScenarioFromUI();
+    payload._savedAt = new Date().toISOString();
+    payload._scenario = which;
     try {
       localStorage.setItem(which === "A" ? SCENARIO_KEY_A : SCENARIO_KEY_B, JSON.stringify(payload));
       updateScenarioStatus();
+      setStatus(`Scenario ${which} saved${existing ? " (overwritten)" : ""}.`);
     } catch {
       // ignore
     }
@@ -340,12 +354,33 @@
     }
   };
 
+  const clearScenarios = () => {
+    const hasA = !!loadScenario("A");
+    const hasB = !!loadScenario("B");
+    if (!hasA && !hasB) {
+      setStatus("No saved scenarios to clear.");
+      return;
+    }
+    const ok = window.confirm("Clear saved Scenario A and Scenario B? This cannot be undone.");
+    if (!ok) return;
+    try {
+      localStorage.removeItem(SCENARIO_KEY_A);
+      localStorage.removeItem(SCENARIO_KEY_B);
+    } catch {
+      // ignore
+    }
+    updateScenarioStatus();
+    setStatus("Saved scenarios cleared.");
+  };
+
   const updateScenarioStatus = () => {
     const el = document.getElementById("scenarioStatus");
     if (!el) return;
-    const hasA = !!loadScenario("A");
-    const hasB = !!loadScenario("B");
-    el.textContent = `A: ${hasA ? "saved" : "—"} | B: ${hasB ? "saved" : "—"}`;
+    const a = loadScenario("A");
+    const b = loadScenario("B");
+    const aTxt = a ? `saved${a._savedAt ? ` (${formatSavedAt(a._savedAt)})` : ""}` : "—";
+    const bTxt = b ? `saved${b._savedAt ? ` (${formatSavedAt(b._savedAt)})` : ""}` : "—";
+    el.textContent = `A: ${aTxt} | B: ${bTxt}`;
   };
 
   // ------------------------------ Schedule Builders ------------------------------
@@ -978,6 +1013,7 @@
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
     safeAddListener("saveScenarioB", "click", () => saveScenario("B"));
+    safeAddListener("clearScenarios", "click", () => clearScenarios());
 
     safeAddListener("loadScenarioA", "click", () => {
       const s = loadScenario("A");
@@ -1223,6 +1259,7 @@
       applyScenarioToUI,
       saveScenario,
       loadScenario,
+      clearScenarios,
       updateScenarioStatus,
       generateSalaryTable,
       setStatus
