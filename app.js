@@ -374,40 +374,16 @@
     const s0 = clamp(baseStep, 1, 22);
     if (year <= 1) return s0;
     return clamp(s0 + (year - 1), 1, 22);
-  };  // ------------------------------ AI payload (numbers, not DOM) ------------------------------
+  };
+
+  // ------------------------------ AI payload (numbers, not DOM) ------------------------------
   const buildTablesPayload = ({ years, premiumType, compareMode, scheduleBlocks }) => {
     const renderArea = document.getElementById("renderArea");
     const hideTa = !!document.getElementById("toggleHideTA")?.checked;
     const showNet = !!document.getElementById("toggleNetPay")?.checked;
     const showDelta = !!document.getElementById("toggleCompareY0")?.checked;
 
-    const rosterOnlySteps = !!document.getElementById("showRosterStepsOnly")?.checked;
-    const hideUnusedCols = !!document.getElementById("hideUnusedCols")?.checked;
-
-    const baseColumns = COLS.filter((c) => !(hideTa && c === "TA"));
-
-    const rosterTools = window.BtaRoster;
-    const normScale = rosterTools?.normScale || ((v) => v);
-    const currentRoster = rosterTools?.getRoster?.() || [];
-
-    const usedCols = new Set();
-    currentRoster.forEach((e) => {
-      const c = normScale(e.Column);
-      if (COLS.includes(c)) usedCols.add(c);
-    });
-
-    const usedStepsByYear = (year) => {
-      const used = new Set();
-      currentRoster.forEach((e) => used.add(stepForYear(e.Step, year)));
-      const arr = Array.from(used).filter((s) => s >= 1 && s <= 22).sort((a, b) => a - b);
-      return arr.length ? arr : Array.from({ length: 22 }, (_, i) => i + 1);
-    };
-
-    const columnsForYear = () => {
-      if (!hideUnusedCols) return baseColumns;
-      const filtered = baseColumns.filter((c) => usedCols.has(c));
-      return filtered.length ? filtered : baseColumns;
-    };
+    const columns = COLS.filter((c) => !(hideTa && c === "TA"));
 
     const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
     const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
@@ -419,10 +395,8 @@
         const hiYearIdx = Math.max(1, year);
         const pct = hiPct?.[hiYearIdx] ?? 0;
 
-        const columns = columnsForYear();
-        const stepList = rosterOnlySteps ? usedStepsByYear(year) : Array.from({ length: 22 }, (_, i) => i + 1);
-
-        const rows = stepList.map((step) => {
+        const rows = [];
+        for (let step = 1; step <= 22; step += 1) {
           const cells = {};
           for (const col of columns) {
             const gross = schedules?.[year]?.[step]?.[col];
@@ -431,8 +405,8 @@
             const net = gross == null ? null : +(Number(gross) - premiumValue * Number(pct || 0)).toFixed(2);
             cells[col] = { gross: gross == null ? null : +Number(gross).toFixed(2), delta, net };
           }
-          return { step, cells };
-        });
+          rows.push({ step, cells });
+        }
 
         tables.push({
           title,
@@ -452,22 +426,10 @@
         hideTa,
         showNet,
         showDelta,
-        premiumType,
-        rosterOnlySteps,
-        hideUnusedCols
+        premiumType
       },
       tables
     };
-
-    // Cache where bee-ai.js looks first
-    window.__BEE_LAST_TABLES_PAYLOAD__ = payload;
-    window.BtaAI = window.BtaAI || {};
-    window.BtaAI.__lastTablesPayload = payload;
-
-    if (renderArea) renderArea.dataset.lastPayloadAt = payload.generatedAt;
-
-    return payload;
-  };
 
     // Cache where bee-ai.js looks first
     window.__BEE_LAST_TABLES_PAYLOAD__ = payload;
@@ -591,244 +553,13 @@
     const hideTa = !!document.getElementById("toggleHideTA")?.checked;
     const showDelta = !!document.getElementById("toggleCompareY0")?.checked;
     const showNet = !!document.getElementById("toggleNetPay")?.checked;
-    const compact = !!document.getElementById("toggleCompactTable")?.checked;
 
     renderArea.classList.toggle("roster-highlight-off", !highlightOn);
     renderArea.classList.toggle("hide-ta", hideTa);
     renderArea.classList.toggle("show-delta", showDelta);
     renderArea.classList.toggle("show-net", showNet);
-    renderArea.classList.toggle("compact", compact);
 
     renderArea.querySelectorAll(".detail").forEach((node) => node.classList.toggle("show", showDetails));
-  };
-
-
-  const getRenderOptions = () => {
-    const rosterOnlySteps = !!document.getElementById("showRosterStepsOnly")?.checked;
-    const hideUnusedCols = !!document.getElementById("hideUnusedCols")?.checked;
-    const compact = !!document.getElementById("toggleCompactTable")?.checked;
-    return { rosterOnlySteps, hideUnusedCols, compact };
-  };
-
-  const computeUsedColsForRoster = (year) => {
-    const rosterTools = window.BtaRoster;
-    const normScale = rosterTools?.normScale || ((v) => v);
-    const currentRoster = rosterTools?.getRoster?.() || [];
-    const used = new Set();
-    currentRoster.forEach((e) => {
-      const c = normScale(e.Column);
-      if (COLS.includes(c)) used.add(c);
-    });
-    // If TA is present, keep it only if used
-    return COLS.filter((c) => used.has(c));
-  };
-
-  const computeUsedStepsForRoster = (year) => {
-    const rosterTools = window.BtaRoster;
-    const currentRoster = rosterTools?.getRoster?.() || [];
-    const used = new Set();
-    currentRoster.forEach((e) => used.add(stepForYear(e.Step, year)));
-    return Array.from(used).filter((s) => s >= 1 && s <= 22).sort((a, b) => a - b);
-  };
-
-  const setValidationBanner = (messages) => {
-    const banner = document.getElementById("validationBanner");
-    if (!banner) return;
-    const msgs = (messages || []).filter(Boolean);
-    if (!msgs.length) {
-      banner.style.display = "none";
-      banner.className = "banner pass";
-      banner.innerHTML = "";
-      return;
-    }
-    banner.style.display = "block";
-    banner.className = "banner fail";
-    banner.innerHTML = `<div><strong>Check these before you share screenshots:</strong></div>` +
-      `<ul style="margin:6px 0 0 18px">${msgs.map((m) => `<li>${m}</li>`).join("")}</ul>`;
-  };
-
-  const validateState = () => {
-    const msgs = [];
-
-    const rosterCount = window.BtaRoster?.getRoster?.()?.length || 0;
-    const rosterStats = window.BtaRoster?.getRosterStats?.() || null;
-    if (!rosterCount) msgs.push("Roster is empty. Affordability and roster highlighting won’t mean anything until you load a roster.");
-    if (rosterStats?.ignoredRows) msgs.push(`Roster: ${rosterStats.ignoredRows} row(s) were ignored (missing name/step/column or invalid data).`);
-
-    const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
-    if (compareOn && !loadScenario("A")) msgs.push("Compare is ON, but Scenario A is not saved.");
-    if (compareOn && !loadScenario("B")) msgs.push("Compare is ON, but Scenario B is not saved.");
-
-    // Health insurance sanity
-    const { hiPct } = getUIParams();
-    for (let y = 1; y <= 5; y += 1) {
-      const p = hiPct?.[y] ?? 0;
-      if (p > 0.6) msgs.push(`HI contribution for Year ${y} looks extremely high (${(p * 100).toFixed(0)}%). Did you enter 19 as 0.19?`);
-    }
-
-    const budget = +document.getElementById("budget")?.value || 0;
-    if (!budget) msgs.push("Budget is 0. Set the budget inputs if you want affordability to be meaningful.");
-
-    setValidationBanner(msgs);
-  };
-
-  const buildTablesPayload = ({ years, title, schedules, hiPct }) => {
-    const { rosterOnlySteps, hideUnusedCols } = getRenderOptions();
-    const premiumType = document.getElementById("netPremiumType")?.value || "family";
-    const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
-
-    const tables = [];
-    years.forEach((year) => {
-      const hiYearIdx = Math.max(1, year);
-      const pct = hiPct?.[hiYearIdx] ?? 0;
-
-      const cols = hideUnusedCols ? computeUsedColsForRoster(year) : COLS.slice();
-      const steps = rosterOnlySteps ? computeUsedStepsForRoster(year) : Array.from({ length: 22 }, (_, i) => i + 1);
-
-      const rows = steps.map((step) => {
-        const cells = {};
-        cols.forEach((col) => {
-          const gross = schedules?.[year]?.[step]?.[col];
-          const base = schedules?.[0]?.[step]?.[col];
-          const delta = gross == null || base == null ? null : +(gross - base).toFixed(2);
-          const net = gross == null ? null : +(gross - premium * pct).toFixed(2);
-          cells[col] = { gross: gross == null ? null : +Number(gross).toFixed(2), net, delta };
-        });
-        return { step, cells };
-      });
-
-      tables.push({ title, year, columns: cols, rows });
-    });
-
-    return {
-      generatedAt: new Date().toISOString(),
-      toggles: {
-        hideTa: !!document.getElementById("toggleHideTA")?.checked,
-        showNet: !!document.getElementById("toggleNetPay")?.checked,
-        showDelta: !!document.getElementById("toggleCompareY0")?.checked,
-        premiumType
-      },
-      tables
-    };
-  };
-
-  const ensureBtaAIExport = () => {
-    window.BtaAI = window.BtaAI || {};
-    if (typeof window.BtaAI.getSalaryTablesPayload !== "function") {
-      window.BtaAI.getSalaryTablesPayload = () => window.BtaAI.__lastTablesPayload || null;
-    }
-  };
-
-  const buildPrintReport = () => {
-    // Build a single printable HTML report (current UI or A/B compare).
-    const years = parseYearInput(document.getElementById("tableYear")?.value);
-    if (!years.length) return;
-
-    const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
-    const uiParams = getUIParams();
-    const schedulesUI = buildSchedules(uiParams);
-
-    const blocks = [];
-    const premiumType = document.getElementById("netPremiumType")?.value || "family";
-    const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
-
-    const formatInc = (p, f, y) => `Y${y}: +$${Number(f || 0).toLocaleString()} and +${(Number(p || 0) * 100).toFixed(2)}%`;
-    const incLines = [1,2,3,4,5].map((y) => formatInc(uiParams.yPct?.[y], uiParams.yFlat?.[y], y)).join("<br/>");
-
-    const assumptions = `
-      <div class="section">
-        <h2>Assumptions</h2>
-        <div><strong>Premium type:</strong> ${premiumType} (annual premium ${money(premium)})</div>
-        <div><strong>Raises (Current UI):</strong><br/>${incLines}</div>
-        <div><strong>HI contribution (Y1–Y5):</strong> ${[1,2,3,4,5].map((y)=>`${(uiParams.hiPct?.[y]*100).toFixed(1)}%`).join(", ")}</div>
-        <div class="soft">Note: Step advances start in Year 2 (Year 0/1 do not advance).</div>
-      </div>
-    `;
-
-    const affordabilityHTML = document.getElementById("affordabilityCard")?.outerHTML || "";
-    const recurringBanner = document.getElementById("affordabilitySummaryRecurring")?.outerHTML || "";
-    const cashBanner = document.getElementById("affordabilitySummaryCash")?.outerHTML || "";
-
-    blocks.push(assumptions);
-    if (recurringBanner || cashBanner) blocks.push(`<div class="section">${recurringBanner}${cashBanner}</div>`);
-    if (affordabilityHTML) blocks.push(`<div class="section"><h2>Affordability</h2>${affordabilityHTML}</div>`);
-
-    // Attach tables payload as simple summaries (full tables can be huge; include compact tables)
-    const { rosterOnlySteps, hideUnusedCols, compact } = getRenderOptions();
-    const cols = hideUnusedCols ? computeUsedColsForRoster(years[0]) : COLS.slice();
-    const steps = rosterOnlySteps ? computeUsedStepsForRoster(years[0]) : Array.from({ length: 22 }, (_, i) => i + 1);
-
-    const buildTableHtml = (payload) => {
-      const tables = payload.tables || [];
-      return tables.map((t) => {
-        const header = `<tr><th>Step</th>${t.columns.map((c)=>`<th>${c}</th>`).join("")}</tr>`;
-        const body = t.rows.map((r)=>`<tr><td>${r.step}</td>${t.columns.map((c)=>`<td>${r.cells?.[c]?.gross==null?"—":money(r.cells[c].gross)}</td>`).join("")}</tr>`).join("");
-        return `<h3>${t.title} — Year ${t.year}</h3><div class="table-container"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
-      }).join("");
-    };
-
-    if (compareOn && loadScenario("A") && loadScenario("B")) {
-      const sA = loadScenario("A");
-      const sB = loadScenario("B");
-      const scheduleA = buildSchedules(sA);
-      const scheduleB = buildSchedules(sB);
-
-      const payload = buildTablesPayload({
-        years,
-        premiumType,
-        compareMode: true,
-        scheduleBlocks: [
-          { title: "Scenario A", schedules: scheduleA, hiPct: sA.hiPct },
-          { title: "Scenario B", schedules: scheduleB, hiPct: sB.hiPct }
-        ]
-      });
-
-      blocks.push(`<div class="section"><h2>Salary Tables</h2>${buildTableHtml(payload)}</div>`);
-    } else {
-      const payload = buildTablesPayload({
-        years,
-        premiumType,
-        compareMode: false,
-        scheduleBlocks: [{ title: "Current UI", schedules: schedulesUI, hiPct: uiParams.hiPct }]
-      });
-      blocks.push(`<div class="section"><h2>Salary Tables</h2>${buildTableHtml(payload)}</div>`);
-    }
-
-    const w = window.open("", "_blank");
-    if (!w) return;
-
-    const reportCss = `
-      body{font-family:Arial,system-ui;margin:16px;color:#111}
-      h1{margin:0 0 6px}
-      h2{margin:14px 0 8px;font-size:18px}
-      h3{margin:12px 0 6px;font-size:15px}
-      .soft{color:#475569;font-size:12px;margin-top:4px}
-      .section{margin-bottom:14px}
-      .table-container{overflow-x:auto;border:1px solid #ddd;border-radius:10px;margin:10px 0;background:#fff}
-      table{border-collapse:collapse;width:100%}
-      th,td{border:1px solid #ddd;padding:6px 8px;white-space:nowrap;font-size:12px}
-      thead th{background:#2d3748;color:#fff;position:sticky;top:0}
-      .btns{display:flex;gap:8px;margin:10px 0 12px}
-      button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
-      @media print{ .btns{display:none} }
-    `;
-
-    const html = `
-      <!doctype html><html><head><meta charset="utf-8"/>
-      <title>BTA Report</title>
-      <style>${reportCss}</style></head><body>
-        <div class="btns">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
-        </div>
-        <h1>BTA Salary Lookup — Report</h1>
-        <div class="soft">Generated ${new Date().toLocaleString()}</div>
-        ${blocks.join("\n")}
-      </body></html>
-    `;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
   };
 
   // ------------------------------ Rendering ------------------------------
@@ -845,9 +576,6 @@
     years.forEach((year) => {
       const rosterMap = buildRosterCellMap(schedules, year);
       const hiYearIdx = Math.max(1, year);
-      const { rosterOnlySteps, hideUnusedCols } = getRenderOptions();
-      const visibleCols = hideUnusedCols ? computeUsedColsForRoster(year) : COLS;
-      const visibleSteps = rosterOnlySteps ? computeUsedStepsForRoster(year) : null;
 
       const sub = document.createElement("div");
       sub.style.margin = "10px 0 6px";
@@ -860,16 +588,14 @@
       const table = document.createElement("table");
       const thead = document.createElement("thead");
       const trh = document.createElement("tr");
-      trh.innerHTML = `<th>Step</th>${(visibleCols || COLS).map((c) => `<th data-col="${c}">${c}</th>`).join("")}`;
+      trh.innerHTML = `<th>Step</th>${COLS.map((c) => `<th data-col="${c}">${c}</th>`).join("")}`;
       thead.appendChild(trh);
       table.appendChild(thead);
 
       const tbody = document.createElement("tbody");
-      const stepList = Array.isArray(visibleSteps) && visibleSteps.length ? visibleSteps : Array.from({ length: 22 }, (_, i) => i + 1);
-      for (let idx = 0; idx < stepList.length; idx += 1) {
-        const step = stepList[idx];
+      for (let step = 1; step <= 22; step += 1) {
         const tr = document.createElement("tr");
-        const rowHtml = (visibleCols || COLS).map((col) => {
+        const rowHtml = COLS.map((col) => {
           const value = schedules?.[year]?.[step]?.[col];
           const baseValue = schedules?.[0]?.[step]?.[col];
           const rosterEntry = rosterMap.get(`${step}|${col}`);
@@ -960,8 +686,6 @@
     }
 
     blocks.forEach((block) => renderArea.appendChild(block));
-
-    validateState();
 
     window.BtaAffordability?.computeAffordability?.();
     updateRosterDisplayFromToggles();
@@ -1065,8 +789,6 @@
 
     safeAddListener("saveScenarioA", "click", () => saveScenario("A"));
     safeAddListener("saveScenarioB", "click", () => saveScenario("B"));
-
-    safeAddListener("buildReportButton", "click", () => buildPrintReport());
 
     safeAddListener("loadScenarioA", "click", () => {
       const s = loadScenario("A");
@@ -1195,9 +917,6 @@
     safeAddListener("toggleHideTA", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
-    safeAddListener("toggleCompactTable", "change", updateRosterDisplayFromToggles);
-    safeAddListener("showRosterStepsOnly", "change", () => generateSalaryTable({ mode: "inline" }));
-    safeAddListener("hideUnusedCols", "change", () => generateSalaryTable({ mode: "inline" }));
 
     safeAddListener("netPremiumType", "change", () => {
       const renderArea = document.getElementById("renderArea");
@@ -1218,8 +937,8 @@
     ];
 
     watchIds.forEach((id) => {
-      safeAddListener(id, "change", () => { window.BtaAffordability?.computeAffordability?.(); validateState(); });
-      safeAddListener(id, "input", () => { window.BtaAffordability?.computeAffordability?.(); validateState(); });
+      safeAddListener(id, "change", () => window.BtaAffordability?.computeAffordability?.());
+      safeAddListener(id, "input", () => window.BtaAffordability?.computeAffordability?.());
     });
   };
 
