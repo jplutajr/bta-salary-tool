@@ -240,7 +240,7 @@
   };
 
   const serializeScenarioFromUI = () => {
-    const { yPct, yFlat, hiPct } = getUIParams();
+    const { yPct, yFlat, hiPct, hiFlat } = getUIParams();
     return {
       yPct,
       yFlat,
@@ -582,6 +582,7 @@
   // ------------------------------ Rendering ------------------------------
   const renderSalaryTable = (schedules, years, title, hiPct, opts = {}) => {
     const rosterTools = window.BtaRoster;
+    const hiFlat = opts?.hiFlat || null;
     const wrap = document.createElement("div");
     wrap.className = "card";
     wrap.style.marginBottom = "14px";
@@ -643,7 +644,11 @@
           const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
 
           const pct = hiPct?.[hiYearIdx] ?? 0;
-          const netValue = !showCellValue || value == null ? null : Number((value - premium * pct).toFixed(2));
+          const flatHi = hiFlat?.[hiYearIdx] ?? 0;
+          const netValue =
+            !showCellValue || value == null
+              ? null
+              : Number((value - premium * pct - flatHi).toFixed(2));
           const deltaValue = !showCellValue || value == null || baseValue == null ? null : value - baseValue;
 
           const detailText = hasRoster
@@ -713,18 +718,29 @@
       const compareWrap = document.createElement("div");
       compareWrap.className = "compare-wrap";
       compareWrap.appendChild(
-        renderSalaryTable(scheduleA, years, "Salary Table — Scenario A", scenarioA.hiPct, { rosterOnly })
+        renderSalaryTable(scheduleA, years, "Salary Table — Scenario A", scenarioA.hiPct, {
+          rosterOnly,
+          hiFlat: scenarioA.hiFlat
+        })
       );
       compareWrap.appendChild(
-        renderSalaryTable(scheduleB, years, "Salary Table — Scenario B", scenarioB.hiPct, { rosterOnly })
+        renderSalaryTable(scheduleB, years, "Salary Table — Scenario B", scenarioB.hiPct, {
+          rosterOnly,
+          hiFlat: scenarioB.hiFlat
+        })
       );
       blocks.push(compareWrap);
 
-      scheduleBlocks.push({ title: "Salary Table — Scenario A", schedules: scheduleA, hiPct: scenarioA.hiPct });
-      scheduleBlocks.push({ title: "Salary Table — Scenario B", schedules: scheduleB, hiPct: scenarioB.hiPct });
+      scheduleBlocks.push({ title: "Salary Table — Scenario A", schedules: scheduleA, hiPct: scenarioA.hiPct, hiFlat: scenarioA.hiFlat });
+      scheduleBlocks.push({ title: "Salary Table — Scenario B", schedules: scheduleB, hiPct: scenarioB.hiPct, hiFlat: scenarioB.hiFlat });
     } else {
-      blocks.push(renderSalaryTable(schedulesUI, years, "Salary Table — Current UI", uiParams.hiPct, { rosterOnly }));
-      scheduleBlocks.push({ title: "Salary Table — Current UI", schedules: schedulesUI, hiPct: uiParams.hiPct });
+      blocks.push(
+        renderSalaryTable(schedulesUI, years, "Salary Table — Current UI", uiParams.hiPct, {
+          rosterOnly,
+          hiFlat: uiParams.hiFlat
+        })
+      );
+      scheduleBlocks.push({ title: "Salary Table — Current UI", schedules: schedulesUI, hiPct: uiParams.hiPct, hiFlat: uiParams.hiFlat });
     }
 
     blocks.forEach((block) => renderArea.appendChild(block));
