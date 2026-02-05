@@ -873,6 +873,14 @@
 
   // ------------------------------ Report (PDF) ------------------------------
   const generateReport = () => {
+	    // Prefer the last generated salary table payload (includes A/B when Compare is on)
+	    const getLastTablesPayload = () =>
+	      window.BtaAI?.__lastTablesPayload ||
+	      window.BtaAI?.__beeLastTablesPayload ||
+	      window.__BEE_LAST_TABLES_PAYLOAD__ ||
+	      window.__BTA_TABLES_PAYLOAD__ ||
+	      null;
+
     // Prefer jsPDF if present; fallback to printable HTML.
     const JsPdf = window.jspdf?.jsPDF || window.jsPDF;
     const hasPdf = !!JsPdf;
@@ -881,6 +889,7 @@
     const params = getUIParams();
     const scenarioA = loadScenario("A");
     const scenarioB = loadScenario("B");
+	    const tablesPayload = getLastTablesPayload();
 
     const pct = (v) => `${(Number(v || 0) * 100).toFixed(2).replace(/\.00$/, "")}%`;
     const hiLabel = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
@@ -891,6 +900,26 @@
       pct(params.yPct?.[y] || 0),
       hiLabel(params.hiPct?.[y] || 0)
     ]);
+
+	    const buildSalarySnapshot = (payload) => {
+	      // Snapshot key cells from the last generated salary tables.
+	      // Rows: [Title, Year, Step, Column, Gross]
+	      if (!payload?.tables?.length) return [];
+	      const pickStep = clamp(+document.getElementById("sl_step")?.value || 22, 1, 22);
+	      const pickCol = (window.BtaRoster?.normScale || ((x) => x))(document.getElementById("sl_scale")?.value || "M50");
+	      const rows = [];
+	      payload.tables.forEach((t) => {
+	        const row = (t.rows || []).find((r) => Number(r.step) === Number(pickStep));
+	        const gross = row?.cells?.[pickCol]?.gross;
+	        if (gross == null || !Number.isFinite(Number(gross))) return;
+	        rows.push([t.title || "Salary Table", `Y${t.year}`, `Step ${pickStep}`, pickCol, money(gross)]);
+	      });
+	      // Sort for readability (A then B if present, and by year)
+	      rows.sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
+	      return rows;
+	    };
+
+	    const salarySnapshotRows = buildSalarySnapshot(tablesPayload);
 
     // Pull affordability table from DOM if available
     const affRows = Array.from(document.querySelectorAll("#affordabilityTableBody tr")).map((tr) =>
@@ -926,6 +955,13 @@
         <div class="block"><h3>Contract Inputs</h3>
           <table><thead><tr><th>Year</th><th>Flat</th><th>%</th><th>HI %</th></tr></thead>
           <tbody>${increases.map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
+        </div>
+        <div class="block"><h3>Salary Snapshot (from last generated tables)</h3>
+          ${salarySnapshotRows.length
+            ? `<table><thead><tr><th>Table</th><th>Year</th><th>Step</th><th>Column</th><th>Gross</th></tr></thead><tbody>${salarySnapshotRows
+                .map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`)
+                .join("")}</tbody></table>`
+            : `<p class="note">No generated salary-table data found. Generate the salary table first (and enable Compare if you want A vs B), then run Report again.</p>`}
         </div>
         <div class="block"><h3>Affordability Summary</h3>
           <pre>${(recurringBannerText + "\n\n" + cashBannerText).trim()}</pre>
@@ -965,6 +1001,53 @@
         headStyles: { fillColor: [45, 55, 72] }
       });
       y = doc.lastAutoTable.finalY + 16;
+
+	      // Salary snapshot table (captures real values for Scenario A/B when Compare was used)
+	      if (salarySnapshotRows.length) {
+	        doc.setFontSize(11);
+	        doc.text("Salary Snapshot (from last generated tables)", left, y);
+	        y += 10;
+	        doc.autoTable({
+	          startY: y,
+	          head: [["Table", "Year", "Step", "Column", "Gross"]],
+	          body: salarySnapshotRows,
+	          styles: { fontSize: 9, cellPadding: 3 },
+	          headStyles: { fillColor: [45, 55, 72] }
+	        });
+	        y = doc.lastAutoTable.finalY + 16;
+
+        // Salary snapshot table (Scenario A/B when Compare is enabled)
+        if (salarySnapshotRows.length) {
+          doc.setFontSize(11);
+          doc.text("Salary Snapshot (from last generated tables)", left, y);
+          y += 8;
+          doc.autoTable({
+            startY: y,
+            head: [["Table", "Year", "Step", "Col", "Gross"]],
+            body: salarySnapshotRows,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [45, 55, 72] },
+            columnStyles: { 0: { cellWidth: 120 } }
+          });
+          y = doc.lastAutoTable.finalY + 16;
+        } else {
+          doc.setFontSize(10);
+          doc.text(
+            "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
+            left,
+            y
+          );
+          y += 16;
+        }
+	      } else {
+	        doc.setFontSize(10);
+	        doc.text(
+	          "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
+	          left,
+	          y
+	        );
+	        y += 16;
+	      }
     } else {
       doc.text("Contract Inputs:", left, y);
       y += 12;
@@ -973,6 +1056,15 @@
         y += 11;
       });
       y += 8;
+
+	      doc.text(
+	        salarySnapshotRows.length
+	          ? "Salary Snapshot: (open in browser report for table)"
+	          : "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
+	        left,
+	        y
+	      );
+	      y += 14;
     }
 
     // Affordability summaries
