@@ -872,224 +872,443 @@
   };
 
   // ------------------------------ Report (PDF) ------------------------------
+
   const generateReport = () => {
-	    // Prefer the last generated salary table payload (includes A/B when Compare is on)
-	    const getLastTablesPayload = () =>
-	      window.BtaAI?.__lastTablesPayload ||
-	      window.BtaAI?.__beeLastTablesPayload ||
-	      window.__BEE_LAST_TABLES_PAYLOAD__ ||
-	      window.__BTA_TABLES_PAYLOAD__ ||
-	      null;
-
-    // Prefer jsPDF if present; fallback to printable HTML.
-    const JsPdf = window.jspdf?.jsPDF || window.jsPDF;
-    const hasPdf = !!JsPdf;
-    const rosterCount = (window.BtaRoster?.getRoster?.() || []).length;
-
-    const params = getUIParams();
-    const scenarioA = loadScenario("A");
-    const scenarioB = loadScenario("B");
-	    const tablesPayload = getLastTablesPayload();
-
-    const pct = (v) => `${(Number(v || 0) * 100).toFixed(2).replace(/\.00$/, "")}%`;
-    const hiLabel = (v) => `${(Number(v || 0) * 100).toFixed(1)}%`;
-
-    const increases = [1, 2, 3, 4, 5].map((y) => [
-      `Y${y}`,
-      money(params.yFlat?.[y] || 0),
-      pct(params.yPct?.[y] || 0),
-      hiLabel(params.hiPct?.[y] || 0)
-    ]);
-
-	    const buildSalarySnapshot = (payload) => {
-	      // Snapshot key cells from the last generated salary tables.
-	      // Rows: [Title, Year, Step, Column, Gross]
-	      if (!payload?.tables?.length) return [];
-	      const pickStep = clamp(+document.getElementById("sl_step")?.value || 22, 1, 22);
-	      const pickCol = (window.BtaRoster?.normScale || ((x) => x))(document.getElementById("sl_scale")?.value || "M50");
-	      const rows = [];
-	      payload.tables.forEach((t) => {
-	        const row = (t.rows || []).find((r) => Number(r.step) === Number(pickStep));
-	        const gross = row?.cells?.[pickCol]?.gross;
-	        if (gross == null || !Number.isFinite(Number(gross))) return;
-	        rows.push([t.title || "Salary Table", `Y${t.year}`, `Step ${pickStep}`, pickCol, money(gross)]);
-	      });
-	      // Sort for readability (A then B if present, and by year)
-	      rows.sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
-	      return rows;
-	    };
-
-	    const salarySnapshotRows = buildSalarySnapshot(tablesPayload);
-
-    // Pull affordability table from DOM if available
-    const affRows = Array.from(document.querySelectorAll("#affordabilityTableBody tr")).map((tr) =>
-      Array.from(tr.querySelectorAll("td")).map((td) => td.textContent.trim())
-    );
-
-    const recurringBannerText = document.getElementById("affordabilitySummaryRecurring")?.innerText?.trim() || "";
-    const cashBannerText = document.getElementById("affordabilitySummaryCash")?.innerText?.trim() || "";
-
-    if (!hasPdf) {
-      // HTML fallback
-      const w = window.open("", "_blank");
-      if (!w) return;
-      const html = `<!doctype html><html><head><meta charset="utf-8"/>
-        <title>BTA Report</title>
-        <style>
-          body{font-family:Arial,system-ui;margin:18px;color:#111}
-          h1{margin:0 0 6px}
-          .meta{color:#475569;margin:0 0 10px}
-          table{border-collapse:collapse;width:100%;margin:10px 0}
-          th,td{border:1px solid #ddd;padding:6px 8px;font-size:12px;white-space:nowrap}
-          thead th{background:#2d3748;color:#fff}
-          .block{margin:12px 0}
-          .note{color:#475569;font-size:12px}
-          button{padding:8px 12px;border:0;border-radius:8px;background:#334155;color:#fff;cursor:pointer}
-        </style></head><body>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="window.print()">Print</button>
-          <button onclick="window.close()">Close</button>
-        </div>
-        <h1>BTA Salary Lookup — Report</h1>
-        <p class="meta">Generated: ${new Date().toLocaleString()} | Roster rows: ${rosterCount} | Scenarios saved: A=${scenarioA ? "yes" : "no"}, B=${scenarioB ? "yes" : "no"}</p>
-        <div class="block"><h3>Contract Inputs</h3>
-          <table><thead><tr><th>Year</th><th>Flat</th><th>%</th><th>HI %</th></tr></thead>
-          <tbody>${increases.map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>
-        </div>
-        <div class="block"><h3>Salary Snapshot (from last generated tables)</h3>
-          ${salarySnapshotRows.length
-            ? `<table><thead><tr><th>Table</th><th>Year</th><th>Step</th><th>Column</th><th>Gross</th></tr></thead><tbody>${salarySnapshotRows
-                .map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`)
-                .join("")}</tbody></table>`
-            : `<p class="note">No generated salary-table data found. Generate the salary table first (and enable Compare if you want A vs B), then run Report again.</p>`}
-        </div>
-        <div class="block"><h3>Affordability Summary</h3>
-          <pre>${(recurringBannerText + "\n\n" + cashBannerText).trim()}</pre>
-          ${affRows.length ? `<table><thead><tr><th>Year</th><th>Contract Payroll</th><th>Baseline Payroll</th><th>Incremental+Adders</th><th>Recurring Offsets</th><th>Net Impact (Recurring)</th><th>Base Cap</th><th>Recurring</th><th>Cash</th></tr></thead><tbody>${affRows.map(r => `<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "<p class=\"note\">Affordability table not available. Load roster + ensure the affordability section is present.</p>"}
-        </div>
-        <p class="note">Tip: Use “Generate Salary Table” for the full schedule view (and print from the popup).</p>
-        </body></html>`;
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
+    const jsPDF = window.jspdf?.jsPDF || window.jsPDF;
+    if (!jsPDF) {
+      alert("jsPDF is not loaded.");
       return;
     }
 
-    const doc = new JsPdf({ orientation: "landscape", unit: "pt", format: "letter" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const left = 40;
-    let y = 40;
+    // -------------------- helpers --------------------
+    const getPremium = () => {
+      const premiumType = document.getElementById("netPremiumType")?.value || "family";
+      return {
+        premiumType,
+        premiumLabel: premiumType === "individual" ? "Individual" : "Family",
+        premiumValue: premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR
+      };
+    };
 
-    doc.setFontSize(18);
-    doc.text("BTA Salary Lookup — Report", left, y);
-    y += 18;
-    doc.setFontSize(10);
-    doc.text(
-      `Generated: ${new Date().toLocaleString()}   |   Roster rows: ${rosterCount}   |   Scenarios saved: A=${scenarioA ? "yes" : "no"}, B=${scenarioB ? "yes" : "no"}`,
-      left,
-      y
-    );
-    y += 16;
+    const hiForYear = (payload, year) => {
+      const y = Math.max(1, year);
+      const pct = normalizeHiPct(payload?.hiPct?.[y] ?? 0);
+      const flat = Number(payload?.hiFlat?.[y] ?? 0) || 0;
+      return { pct, flat };
+    };
 
-    // Contract inputs table
-    if (typeof doc.autoTable === "function") {
-      doc.autoTable({
-        startY: y,
-        head: [["Year", "Flat", "%", "HI %"]],
-        body: increases,
-        styles: { fontSize: 9, cellPadding: 3 },
-        headStyles: { fillColor: [45, 55, 72] }
+    const computeNet = (gross, payload, year, premiumYear) => {
+      if (gross == null) return null;
+      const { pct, flat } = hiForYear(payload, year);
+      const sm = SalaryMath();
+      const netBase =
+        typeof sm.computeHealthInsuranceNet === "function"
+          ? sm.computeHealthInsuranceNet(gross, pct, premiumYear)
+          : Number((Number(gross) - Number(premiumYear) * Number(pct)).toFixed(2));
+      return Number((netBase - flat).toFixed(2));
+    };
+
+    const rosterTotalsForScenario = (payload) => {
+      const rosterTools = window.BtaRoster;
+      const roster = rosterTools?.getRoster?.() || [];
+      const normScale = rosterTools?.normScale || ((v) => v);
+
+      const schedules = buildSchedules(payload);
+      const schedules0 = schedules[0];
+
+      const years = [1, 2, 3, 4, 5];
+      const out = [];
+
+      const adderPct = clamp(Number(payload?.adderPct || 0), 0, 100) / 100;
+
+      const addlRevenue = Number(payload?.addlRevenue || 0) || 0;
+      const otherSavings = Number(payload?.otherSavings || 0) || 0;
+      const recurringSurplus = Number(payload?.recurringSurplus || 0) || 0;
+      const oneTimeFund = Number(payload?.oneTimeFund || 0) || 0;
+      const reallocPct = clamp(Number(payload?.reallocPct || 0), 0, 100) / 100;
+      const oneTimeMode = payload?.oneTimeMode || "y1";
+
+      const budget = Number(payload?.budget || 0) || 0;
+      const maxBudgetFlat = Number(payload?.maxBudgetFlat || 0) || 0;
+      const maxBudgetPct = clamp(Number(payload?.maxBudgetPct || 0), 0, 100) / 100;
+      const stateAidPct = clamp(Number(payload?.stateAidPct || 0), 0, 100) / 100;
+      const otherPct = clamp(Number(payload?.otherPct || 0), 0, 1);
+
+      const baseCap =
+        Math.max(maxBudgetFlat, budget * maxBudgetPct) +
+        budget * stateAidPct +
+        addlRevenue +
+        otherSavings;
+
+      const otherObligations = budget * otherPct;
+      const reallocAmount = otherObligations * reallocPct;
+      const recurringOffsets = recurringSurplus + reallocAmount;
+
+      const oneTimePerYear = oneTimeMode === "spread" ? oneTimeFund / 5 : 0;
+
+      const contractPayrollForYear = (year) => {
+        let total = 0;
+        roster.forEach((entry) => {
+          const stepY = stepForYear(entry.Step, year);
+          const col = normScale(entry.Column);
+          const value = schedules?.[year]?.[stepY]?.[col];
+          if (value == null) return;
+          total += Number(value) * (entry.FTE || 1);
+        });
+        return total;
+      };
+
+      const baselinePayrollForYear = (year) => {
+        let total = 0;
+        roster.forEach((entry) => {
+          const stepY = stepForYear(entry.Step, year);
+          const col = normScale(entry.Column);
+          const value = schedules0?.[stepY]?.[col];
+          if (value == null) return;
+          total += Number(value) * (entry.FTE || 1);
+        });
+        return total;
+      };
+
+      let anyFailRecurring = false;
+      let anyFailCash = false;
+
+      years.forEach((year) => {
+        const contract = contractPayrollForYear(year);
+        const baseline = baselinePayrollForYear(year);
+
+        const incremental = contract - baseline;
+        const incWithAdders = incremental * (1 + adderPct);
+
+        const netRecurring = incWithAdders - recurringOffsets;
+
+        const oneTimeApplied = oneTimeMode === "y1" ? (year === 1 ? oneTimeFund : 0) : oneTimePerYear;
+        const netCash = incWithAdders - (recurringOffsets + oneTimeApplied);
+
+        const passRecurring = netRecurring <= baseCap;
+        const passCash = netCash <= baseCap;
+
+        if (!passRecurring) anyFailRecurring = true;
+        if (!passCash) anyFailCash = true;
+
+        out.push({
+          year,
+          contract,
+          baseline,
+          incWithAdders,
+          recurringOffsets,
+          oneTimeApplied,
+          netRecurring,
+          netCash,
+          baseCap,
+          passRecurring,
+          passCash
+        });
       });
-      y = doc.lastAutoTable.finalY + 16;
 
-	      // Salary snapshot table (captures real values for Scenario A/B when Compare was used)
-	      if (salarySnapshotRows.length) {
-	        doc.setFontSize(11);
-	        doc.text("Salary Snapshot (from last generated tables)", left, y);
-	        y += 10;
-	        doc.autoTable({
-	          startY: y,
-	          head: [["Table", "Year", "Step", "Column", "Gross"]],
-	          body: salarySnapshotRows,
-	          styles: { fontSize: 9, cellPadding: 3 },
-	          headStyles: { fillColor: [45, 55, 72] }
-	        });
-	        y = doc.lastAutoTable.finalY + 16;
-
-        // Salary snapshot table (Scenario A/B when Compare is enabled)
-        if (salarySnapshotRows.length) {
-          doc.setFontSize(11);
-          doc.text("Salary Snapshot (from last generated tables)", left, y);
-          y += 8;
-          doc.autoTable({
-            startY: y,
-            head: [["Table", "Year", "Step", "Col", "Gross"]],
-            body: salarySnapshotRows,
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [45, 55, 72] },
-            columnStyles: { 0: { cellWidth: 120 } }
-          });
-          y = doc.lastAutoTable.finalY + 16;
-        } else {
-          doc.setFontSize(10);
-          doc.text(
-            "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
-            left,
-            y
-          );
-          y += 16;
+      return {
+        rows: out,
+        inputs: {
+          adderPct,
+          budget,
+          maxBudgetFlat,
+          maxBudgetPct,
+          stateAidPct,
+          otherPct,
+          addlRevenue,
+          otherSavings,
+          recurringSurplus,
+          reallocPct,
+          oneTimeFund,
+          oneTimeMode
+        },
+        derived: {
+          baseCap,
+          recurringOffsets,
+          anyFailRecurring,
+          anyFailCash
         }
-	      } else {
-	        doc.setFontSize(10);
-	        doc.text(
-	          "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
-	          left,
-	          y
-	        );
-	        y += 16;
-	      }
-    } else {
-      doc.text("Contract Inputs:", left, y);
-      y += 12;
-      increases.forEach((r) => {
-        doc.text(r.join("  |  "), left, y);
-        y += 11;
-      });
-      y += 8;
+      };
+    };
 
-	      doc.text(
-	        salarySnapshotRows.length
-	          ? "Salary Snapshot: (open in browser report for table)"
-	          : "Salary Snapshot: (no generated table data found — generate the salary table first, then rerun Report)",
-	        left,
-	        y
-	      );
-	      y += 14;
+    const buildSalarySnapshot = (label, payload, years) => {
+      const schedules = buildSchedules(payload);
+      const { premiumLabel, premiumValue } = getPremium();
+
+      const cols = ["BA", "BA30", "M", "M50"];
+      const steps = [1, 10, 22];
+
+      const header = ["Year", "Step"].concat(
+        cols.flatMap((c) => [`${c} Gross`, `${c} Net`])
+      );
+
+      const data = [];
+      years.forEach((year) => {
+        steps.forEach((step) => {
+          const row = [String(year), String(step)];
+          cols.forEach((col) => {
+            const gross = schedules?.[year]?.[step]?.[col];
+            const net = computeNet(gross, payload, year, premiumValue);
+            row.push(gross == null ? "—" : money(gross));
+            row.push(net == null ? "—" : money(net));
+          });
+          data.push(row);
+        });
+      });
+
+      return { title: `${label} — Salary Snapshot (Net uses ${premiumLabel} premium)`, header, data };
+    };
+
+    const buildIncreasesSummary = (payload) => {
+      const rows = [];
+      for (let y = 1; y <= 5; y += 1) {
+        const pct = Number(payload?.yPct?.[y] ?? 0) || 0;
+        const flat = Number(payload?.yFlat?.[y] ?? 0) || 0;
+        const { pct: hiPct, flat: hiFlat } = hiForYear(payload, y);
+        rows.push([
+          `Y${y}`,
+          `${(pct * 100).toFixed(2)}%`,
+          money(flat),
+          `${(hiPct * 100).toFixed(2)}%`,
+          money(hiFlat)
+        ]);
+      }
+      return {
+        header: ["Year", "Raise %", "Flat $", "HI %", "HI Flat $/yr"],
+        data: rows
+      };
+    };
+
+    // -------------------- collect scenarios --------------------
+    const years = parseYearInput(document.getElementById("tableYear")?.value);
+    const compareOn = !!document.getElementById("compareOnGenerate")?.checked;
+
+    const scenarioA = loadScenario("A");
+    const scenarioB = loadScenario("B");
+
+    const scenarios = [];
+    if (compareOn && scenarioA && scenarioB) {
+      scenarios.push({ key: "A", label: "Scenario A", payload: scenarioA });
+      scenarios.push({ key: "B", label: "Scenario B", payload: scenarioB });
+    } else if (scenarioA) {
+      scenarios.push({ key: "A", label: "Scenario A", payload: scenarioA });
+    } else if (scenarioB) {
+      scenarios.push({ key: "B", label: "Scenario B", payload: scenarioB });
+    } else {
+      scenarios.push({ key: "UI", label: "Current UI", payload: serializeScenarioFromUI() });
     }
 
-    // Affordability summaries
-    doc.setFontSize(11);
-    doc.text("Affordability Summary", left, y);
-    y += 12;
-    doc.setFontSize(9);
-    const summaryText = (recurringBannerText + "\n\n" + cashBannerText).trim();
-    const wrap = doc.splitTextToSize(summaryText || "(no affordability summary)", pageW - left * 2);
-    doc.text(wrap, left, y);
-    y += Math.min(140, wrap.length * 11) + 8;
+    // -------------------- PDF layout --------------------
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+    const margin = 40;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    let y = margin;
 
-    // Affordability table
-    if (affRows.length && typeof doc.autoTable === "function") {
-      doc.autoTable({
-        startY: y,
-        head: [["Year", "Contract Payroll", "Baseline Payroll", "Incremental+Adders", "Recurring Offsets", "Net Impact (Recurring)", "Base Cap", "Recurring", "Cash"]],
-        body: affRows,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [45, 55, 72] }
-      });
+    const addPageIfNeeded = (neededH) => {
+      if (y + neededH <= pageH - margin) return;
+      doc.addPage();
+      y = margin;
+    };
+
+    const h1 = (text) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text(text, margin, y);
+      y += 18;
+    };
+
+    const h2 = (text) => {
+      addPageIfNeeded(22);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(text, margin, y);
+      y += 16;
+    };
+
+    const p = (text) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const lines = doc.splitTextToSize(String(text || ""), pageW - margin * 2);
+      addPageIfNeeded(lines.length * 12 + 6);
+      doc.text(lines, margin, y);
+      y += lines.length * 12 + 6;
+    };
+
+    const table = (header, rows, colWidths) => {
+      const rowH = 14;
+      const fontSize = 8.5;
+      doc.setFontSize(fontSize);
+
+      const widths =
+        colWidths && colWidths.length === header.length
+          ? colWidths
+          : Array(header.length).fill((pageW - margin * 2) / header.length);
+
+      const drawRow = (cells, isHeader) => {
+        const x0 = margin;
+        let x = x0;
+
+        // wrap text in cells (simple)
+        const cellLines = cells.map((c, i) =>
+          doc.splitTextToSize(String(c ?? ""), widths[i] - 6)
+        );
+        const linesMax = Math.max(...cellLines.map((l) => l.length), 1);
+        const h = rowH * linesMax + 6;
+
+        addPageIfNeeded(h + 2);
+
+        // background header
+        if (isHeader) {
+          doc.setFillColor(45, 55, 72);
+          doc.rect(margin, y, widths.reduce((a, b) => a + b, 0), h, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+        } else {
+          doc.setTextColor(17, 24, 39);
+          doc.setFont("helvetica", "normal");
+        }
+
+        // borders + text
+        cells.forEach((c, i) => {
+          doc.setDrawColor(210);
+          doc.rect(x, y, widths[i], h);
+          const lines = cellLines[i];
+          const tx = x + 3;
+          const ty = y + 11;
+          doc.text(lines, tx, ty);
+          x += widths[i];
+        });
+
+        y += h;
+        doc.setTextColor(17, 24, 39);
+      };
+
+      drawRow(header, true);
+      rows.forEach((r) => drawRow(r, false));
+      y += 8;
+      doc.setFontSize(10);
+    };
+
+    // -------------------- report content --------------------
+    h1("BTA Salary Tool Report");
+    p(`Generated: ${new Date().toLocaleString()}`);
+    p(`Years: ${years.join(", ")}  |  Mode: ${compareOn && scenarioA && scenarioB ? "Compare A vs B" : "Single scenario"}`);
+
+    scenarios.forEach((sc, idx) => {
+      if (idx > 0) {
+        addPageIfNeeded(40);
+        doc.setDrawColor(200);
+        doc.line(margin, y, pageW - margin, y);
+        y += 14;
+      }
+
+      h2(sc.label);
+
+      // Inputs summary
+      const inc = buildIncreasesSummary(sc.payload);
+      p("Raises and insurance contribution settings:");
+      table(inc.header, inc.data, [40, 60, 75, 60, 85]);
+
+      // Budget inputs (so you can compare)
+      const bi = sc.payload || {};
+      p("Budget inputs:");
+      table(
+        ["Field", "Value"],
+        [
+          ["Budget base", money(bi.budget || 0)],
+          ["Max budget (flat)", money(bi.maxBudgetFlat || 0)],
+          ["Max budget (% of base)", `${Number(bi.maxBudgetPct || 0).toFixed(2)}%`],
+          ["State aid (% of base)", `${Number(bi.stateAidPct || 0).toFixed(2)}%`],
+          ["Other obligations (% of base)", `${Number(bi.otherPct || 0).toFixed(3)}`],
+          ["Adders (% on incremental)", `${Number(bi.adderPct || 0).toFixed(2)}%`],
+          ["Additional revenue", money(bi.addlRevenue || 0)],
+          ["Other savings", money(bi.otherSavings || 0)],
+          ["Recurring surplus", money(bi.recurringSurplus || 0)],
+          ["Realloc (% of other obligations)", `${Number(bi.reallocPct || 0).toFixed(2)}%`],
+          ["One-time fund", money(bi.oneTimeFund || 0)],
+          ["One-time mode", String(bi.oneTimeMode || "y1")]
+        ],
+        [220, pageW - margin * 2 - 220]
+      );
+
+      // Affordability summary
+      const aff = rosterTotalsForScenario(sc.payload);
+      p("Affordability (roster-based):");
+      table(
+        ["Year", "Contract", "Baseline", "Inc+Adders", "Offsets", "Net Recurring", "Cap", "PASS?"],
+        aff.rows.map((r) => [
+          `Y${r.year}`,
+          money(r.contract),
+          money(r.baseline),
+          money(r.incWithAdders),
+          money(r.recurringOffsets),
+          money(r.netRecurring),
+          money(r.baseCap),
+          r.passRecurring ? "PASS" : "FAIL"
+        ]),
+        [36, 72, 72, 72, 60, 70, 60, 40]
+      );
+      p(`Recurring result: ${aff.derived.anyFailRecurring ? "FAIL (at least one year)" : "PASS (all years)"} — Base cap/yr ${money(aff.derived.baseCap)}; recurring offsets/yr ${money(aff.derived.recurringOffsets)}.`);
+
+      table(
+        ["Year", "Net Cash (one-time applied)", "One-time applied", "PASS?"],
+        aff.rows.map((r) => [
+          `Y${r.year}`,
+          money(r.netCash),
+          money(r.oneTimeApplied),
+          r.passCash ? "PASS" : "FAIL"
+        ]),
+        [36, 120, 120, 50]
+      );
+      p(`Cash coverage result: ${aff.derived.anyFailCash ? "FAIL (at least one year)" : "PASS (all years)"} — One-time mode: ${sc.payload.oneTimeMode || "y1"}.`);
+
+      // Salary snapshot
+      const snap = buildSalarySnapshot(sc.label, sc.payload, years);
+      h2(snap.title);
+      table(snap.header, snap.data);
+    });
+
+    // Compare section if A and B present
+    if (compareOn && scenarioA && scenarioB) {
+      doc.addPage();
+      y = margin;
+      h1("Scenario A vs Scenario B — Quick Compare");
+
+      const affA = rosterTotalsForScenario(scenarioA);
+      const affB = rosterTotalsForScenario(scenarioB);
+
+      p("Recurring net impact (Inc+Adders - Offsets). Positive means cost to cover. Lower is better.");
+
+      table(
+        ["Year", "A Net Recurring", "B Net Recurring", "A - B"],
+        [1,2,3,4,5].map((yr) => {
+          const a = affA.rows.find(r => r.year === yr);
+          const b = affB.rows.find(r => r.year === yr);
+          const d = (a?.netRecurring ?? 0) - (b?.netRecurring ?? 0);
+          return [`Y${yr}`, money(a?.netRecurring ?? 0), money(b?.netRecurring ?? 0), money(d)];
+        }),
+        [40, 120, 120, 120]
+      );
+
+      p("Cash net impact (with one-time applied). Lower is better.");
+      table(
+        ["Year", "A Net Cash", "B Net Cash", "A - B"],
+        [1,2,3,4,5].map((yr) => {
+          const a = affA.rows.find(r => r.year === yr);
+          const b = affB.rows.find(r => r.year === yr);
+          const d = (a?.netCash ?? 0) - (b?.netCash ?? 0);
+          return [`Y${yr}`, money(a?.netCash ?? 0), money(b?.netCash ?? 0), money(d)];
+        }),
+        [40, 120, 120, 120]
+      );
+
+      p("If the numbers look 'stale', it means the scenarios saved in your browser storage are stale. Use Clear Scenarios, then Save again.");
     }
 
     doc.save(`bta_report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
+
 
   // ------------------------------ Event wiring ------------------------------
   const safeAddListener = (id, event, handler) => {
