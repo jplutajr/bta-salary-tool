@@ -498,7 +498,8 @@
   const buildPctDropdowns = () => {
     const ids = ["year1", "year2", "year3", "year4", "year5"];
     const options = [];
-    for (let p = 0.5; p <= 3.5 + 1e-9; p += 0.25) {
+    // Include 0% option for each contract-year percent dropdown.
+    for (let p = 0.0; p <= 3.5 + 1e-9; p += 0.25) {
       const val = (p / 100).toFixed(4);
       const label = `${p.toFixed(2).replace(/\.00$/, "")}%`;
       options.push({ val, label });
