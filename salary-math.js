@@ -11,7 +11,8 @@
       const inc = paramsOverride?.increases?.[j] || {};
       const flat = Number(inc.flat) || 0;
       const rate = Number(inc.rate) || 0;
-      v = (v + flat) * (1 + rate);
+      // Apply % first, then add flat (flat not multiplied by %)
+      v = v * (1 + rate) + flat;
     }
     return Number(v.toFixed(2)) || 0;
   };
@@ -77,7 +78,8 @@
       if (flat > 0) explanation.flatAdds.push({ year: y, amount: flat });
       if (rate > 0) explanation.pctIncreases.push({ year: y, rate: rate * 100 });
 
-      currentSalary = (currentSalary + flat) * (1 + rate);
+      // Apply % first, then add flat (flat not multiplied by %)
+      currentSalary = currentSalary * (1 + rate) + flat;
     }
 
     explanation.finalSalary = Number((currentSalary * Number(fte || 1)).toFixed(2));
