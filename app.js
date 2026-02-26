@@ -144,7 +144,8 @@
           paramsOverride?.increases?.[j]?.rate ??
           (Number(document.getElementById(`year${j}`)?.value || 0) || 0);
 
-        v = (v + Number(flat || 0)) * (1 + Number(rate || 0));
+        // Apply % raise first, then add flat (flat is NOT multiplied by the %)
+        v = v * (1 + Number(rate || 0)) + Number(flat || 0);
       }
       return v;
     };
@@ -272,11 +273,18 @@
       if (el) el.value = v;
     };
 
-    setVal("year1", String(payload.yPct?.[1] ?? 0.0275));
-    setVal("year2", String(payload.yPct?.[2] ?? 0.0275));
-    setVal("year3", String(payload.yPct?.[3] ?? 0.0275));
-    setVal("year4", String(payload.yPct?.[4] ?? 0.0275));
-    setVal("year5", String(payload.yPct?.[5] ?? 0.0275));
+    // Percent dropdown values are stored as fixed 4-decimal fractions (e.g., 0.0300).
+    // If we set a select to "0" it won't match any option ("0.0000"), and the UI will silently fall back.
+    const toUiRate = (v, fallback = 0.0275) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(4) : Number(fallback).toFixed(4);
+    };
+
+    setVal("year1", toUiRate(payload.yPct?.[1]));
+    setVal("year2", toUiRate(payload.yPct?.[2]));
+    setVal("year3", toUiRate(payload.yPct?.[3]));
+    setVal("year4", toUiRate(payload.yPct?.[4]));
+    setVal("year5", toUiRate(payload.yPct?.[5]));
 
     setVal("flat1", String(payload.yFlat?.[1] ?? 1200));
     setVal("flat2", String(payload.yFlat?.[2] ?? 1200));
@@ -403,7 +411,8 @@
           const prev = schedules[y - 1][s][c];
           const flatAdd = params?.yFlat?.[y] || 0;
           const rate = params?.yPct?.[y] || 0;
-          schedules[y][s][c] = prev == null ? null : (prev + flatAdd) * (1 + rate);
+          // Apply % raise first, then add flat (flat is NOT multiplied by the %)
+          schedules[y][s][c] = prev == null ? null : prev * (1 + rate) + flatAdd;
         }
       }
     }
