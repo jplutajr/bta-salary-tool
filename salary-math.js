@@ -12,7 +12,7 @@
       const flat = Number(inc.flat) || 0;
       const rate = Number(inc.rate) || 0;
       // Apply % first, then add flat (flat not multiplied by %)
-      v = v * (1 + rate) + flat;
+      v = (v + flat) * (1 + rate);
     }
     return Number(v.toFixed(2)) || 0;
   };
