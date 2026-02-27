@@ -411,8 +411,8 @@
           const prev = schedules[y - 1][s][c];
           const flatAdd = params?.yFlat?.[y] || 0;
           const rate = params?.yPct?.[y] || 0;
-          // Apply % raise first, then add flat (flat is NOT multiplied by the %)
-          schedules[y][s][c] = prev == null ? null : prev * (1 + rate) + flatAdd;
+          // Apply flat first, then apply % raise (flat IS multiplied by the %)
+          schedules[y][s][c] = prev == null ? null : (prev + flatAdd) * (1 + rate);
         }
       }
     }
