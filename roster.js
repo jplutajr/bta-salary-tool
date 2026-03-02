@@ -259,7 +259,12 @@
   const exportRosterCsv = () => {
     const app = window.BtaApp;
     if (!app) return;
-    const year = app.clamp(+document.getElementById("exportYear")?.value || 1, 0, 5);
+    // IMPORTANT: allow Year 0.
+    // Using `|| 1` breaks Year 0 because 0 is falsy. Default ONLY when the input is empty/NaN.
+    const exportYearEl = document.getElementById("exportYear");
+    const rawYear = exportYearEl ? String(exportYearEl.value).trim() : "";
+    const parsedYear = rawYear === "" ? 1 : Number(rawYear);
+    const year = app.clamp(Number.isFinite(parsedYear) ? parsedYear : 1, 0, 5);
     const scenario = document.getElementById("exportScenario")?.value || "ui";
 
     const uiSchedules = app.buildSchedules(app.getUIParams());
