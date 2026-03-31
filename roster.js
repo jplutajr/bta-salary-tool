@@ -164,7 +164,7 @@
 
       const stepStr = (idxStep >= 0 ? c[idxStep] : "").toString().trim();
       const match = stepStr.match(/(\d{1,2})/);
-      const step = match ? Math.max(1, Math.min(parseInt(match[1], 10), 22)) : null;
+      const step = match ? Math.max(1, Math.min(parseInt(match[1], 10), 23)) : null;
       if (!step) { ignored += 1; continue; }
 
       const columnRaw = (idxColumn >= 0 ? c[idxColumn] : "").toString().trim();
@@ -185,13 +185,24 @@
 
   const parseCSV = (csvStr) => parseCSVWithStats(csvStr).rows;
 
+  const normalizeRosterForStep23 = (rows) =>
+    (rows || []).map((entry) => {
+      const rawStep = Number(entry?.Step) || 1;
+      const eligible = rawStep >= 23 || !!entry?.Step23Year1Eligible;
+      return {
+        ...entry,
+        Step: Math.max(1, Math.min(22, rawStep >= 23 ? 22 : rawStep)),
+        Step23Year1Eligible: eligible
+      };
+    });
+
   const notifyRosterUpdated = () => {
     window.dispatchEvent(new CustomEvent("bta-roster-updated", { detail: { roster } }));
   };
 
   const applyRosterFromCSV = (rawCsv, sourceLabel) => {
     const parsed = parseCSVWithStats(rawCsv);
-    roster = parsed?.rows || [];
+    roster = normalizeRosterForStep23(parsed?.rows || []);
     rosterStats = { ignoredRows: parsed?.ignoredRows || 0, totalDataRows: parsed?.totalDataRows || 0 };
     saveRosterToStorage(rawCsv);
     const ignoredMsg = rosterStats.ignoredRows ? ` (${rosterStats.ignoredRows} ignored)` : "";
@@ -279,7 +290,7 @@
     if (scenario === "both") {
       header.push("Salary_A", "Salary_B");
       rows = roster.map((entry) => {
-        const stepY = app.stepForYear(entry.Step, year);
+        const stepY = app.stepForYear(entry.Step, year, { step23Year1Eligible: !!entry.Step23Year1Eligible });
         const a = scheduleA ? app.salaryAt(scheduleA, year, stepY, entry.Column) : null;
         const b = scheduleB ? app.salaryAt(scheduleB, year, stepY, entry.Column) : null;
         return [
@@ -295,7 +306,7 @@
       header.push("Salary");
       const schedules = scenario === "A" ? scheduleA : scenario === "B" ? scheduleB : uiSchedules;
       rows = roster.map((entry) => {
-        const stepY = app.stepForYear(entry.Step, year);
+        const stepY = app.stepForYear(entry.Step, year, { step23Year1Eligible: !!entry.Step23Year1Eligible });
         const value = schedules ? app.salaryAt(schedules, year, stepY, entry.Column) : null;
         return [
           entry.Name,
@@ -351,7 +362,7 @@
       if (scenario === "both") {
         header.push("Salary_A", "Salary_B");
         data = roster.map((entry) => {
-          const stepY = app.stepForYear(entry.Step, year);
+          const stepY = app.stepForYear(entry.Step, year, { step23Year1Eligible: !!entry.Step23Year1Eligible });
           const a = scheduleA ? app.salaryAt(scheduleA, year, stepY, entry.Column) : null;
           const b = scheduleB ? app.salaryAt(scheduleB, year, stepY, entry.Column) : null;
           return [
@@ -368,7 +379,7 @@
         header.push("Salary");
         const schedules = scenario === "A" ? scheduleA : scenario === "B" ? scheduleB : uiSchedules;
         data = roster.map((entry) => {
-          const stepY = app.stepForYear(entry.Step, year);
+          const stepY = app.stepForYear(entry.Step, year, { step23Year1Eligible: !!entry.Step23Year1Eligible });
           const value = schedules ? app.salaryAt(schedules, year, stepY, entry.Column) : null;
           return [
             entry.Name,
@@ -460,11 +471,12 @@
       getRoster: () => roster,
       getRosterStats: () => rosterStats,
       setRoster: (nextRoster) => {
-        roster = nextRoster || [];
+        roster = normalizeRosterForStep23(nextRoster || []);
         notifyRosterUpdated();
       },
       parseCSV,
       normScale,
+      normalizeRosterForStep23,
       onRenderedTable: () => {},
       exportRosterCsv,
       exportRosterXlsx
