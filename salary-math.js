@@ -1,7 +1,24 @@
 (() => {
-  const stepForYear = (baseStep, yearIdx) => {
-    const offset = Math.max(0, (yearIdx | 0) - 1);
-    return Math.max(1, Math.min(22, (baseStep | 0) + offset));
+  const hasStep23Enabled = () => !!document.getElementById("toggleStep23")?.checked;
+
+  const maxStep = () => (hasStep23Enabled() ? 23 : 22);
+
+  const stepForYear = (baseStep, yearIdx, options = {}) => {
+    const enabled = hasStep23Enabled();
+    const eligible = !!options?.step23Year1Eligible;
+    let current = Math.max(1, Math.min(enabled ? 23 : 22, Number(baseStep) || 1));
+    if (!enabled && current > 22) current = 22;
+
+    if ((yearIdx | 0) <= 0) return current;
+
+    current = enabled && (current >= 23 || eligible) ? 23 : Math.min(current, 22);
+    if ((yearIdx | 0) === 1) return current;
+
+    for (let y = 2; y <= (yearIdx | 0); y += 1) {
+      if (enabled) current = current >= 22 ? 23 : current + 1;
+      else current = Math.min(22, current + 1);
+    }
+    return current;
   };
 
   const computeCellValue = (base, yearIdx, paramsOverride) => {
@@ -104,7 +121,8 @@
       if (stepForYear(10, 0) !== 10) return { status: "FAIL", reason: "stepForYear year 0 wrong" };
       if (stepForYear(10, 1) !== 10) return { status: "FAIL", reason: "stepForYear year 1 wrong" };
       if (stepForYear(10, 2) !== 11) return { status: "FAIL", reason: "stepForYear year 2 wrong" };
-      if (stepForYear(22, 99) !== 22) return { status: "FAIL", reason: "step cap broken" };
+      if (stepForYear(22, 1) !== 22) return { status: "FAIL", reason: "step 22 year 1 wrong" };
+      if (stepForYear(22, 2) !== (hasStep23Enabled() ? 23 : 22)) return { status: "FAIL", reason: "step 23 progression broken" };
 
       // Salary calc smoke test
       const test = computeSalaryAt(10, "M50", 1, 3, { increases: { 1: { flat: 1200, rate: 0.0275 } } });
