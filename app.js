@@ -529,6 +529,13 @@
       const label = `${p.toFixed(2).replace(/\.00$/, "")}%`;
       options.push({ val, label });
     }
+
+    // Add 3.1% as an extra raise option without changing the existing quarter-point options.
+    const extraRaiseOption = { val: "0.0310", label: "3.1%" };
+    if (!options.some((opt) => opt.val === extraRaiseOption.val)) {
+      options.push(extraRaiseOption);
+      options.sort((a, b) => Number(a.val) - Number(b.val));
+    }
     ids.forEach((id) => {
       const sel = document.getElementById(id);
       if (!sel) return;
