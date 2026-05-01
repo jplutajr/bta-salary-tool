@@ -1,5 +1,5 @@
 (() => {
-  const hasStep23Enabled = () => !!document.getElementById("toggleStep23")?.checked;
+  const hasStep23Enabled = () => (typeof document !== "undefined") && !!document.getElementById("toggleStep23")?.checked;
 
   const maxStep = () => (hasStep23Enabled() ? 23 : 22);
 
