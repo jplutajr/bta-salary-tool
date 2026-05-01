@@ -27,7 +27,7 @@
   })();
 
   // ------------------------------ Constants ------------------------------
-  const BUILD_VERSION = "v0.5.2";
+  const BUILD_VERSION = "v0.5.3";
   const BUILD_TIME = new Date().toLocaleString();
 
   // 2025 premiums (annual)
@@ -64,6 +64,9 @@
   // ------------------------------ Utilities ------------------------------
   const money = (value) =>
     Number(value || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+  const moneyWhole = (value) =>
+    Number(Math.round(Number(value || 0))).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0, minimumFractionDigits: 0 });
 
   const setStatus = (msg) => {
     const node = document.getElementById("statusMsg");
@@ -381,33 +384,19 @@
     setStatus("Saved scenarios cleared.");
   };
 
-  const scenarioSummary = (payload) => {
-    if (!payload) return "—";
-    const parts = [];
-    for (let y = 1; y <= 5; y += 1) {
-      const flat = Number(payload.yFlat?.[y] ?? 0);
-      const pct = Number(payload.yPct?.[y] ?? 0) * 100;
-      parts.push(`Y${y} $${flat.toLocaleString("en-US", { maximumFractionDigits: 0 })}+${pct.toFixed(2).replace(/\.00$/, "")}%`);
-    }
-    return `${payload._savedAt ? `saved ${formatSavedAt(payload._savedAt)} — ` : ""}${parts.join("; ")}`;
-  };
-
-  const scenariosEquivalent = (a, b) => {
-    if (!a || !b) return false;
-    return JSON.stringify({ yPct: a.yPct, yFlat: a.yFlat, hiPct: a.hiPct, hiFlat: a.hiFlat }) ===
-      JSON.stringify({ yPct: b.yPct, yFlat: b.yFlat, hiPct: b.hiPct, hiFlat: b.hiFlat });
-  };
-
   const updateScenarioStatus = () => {
     const el = document.getElementById("scenarioStatus");
     if (!el) return;
     const a = loadScenario("A");
     const b = loadScenario("B");
-    const same = scenariosEquivalent(a, b);
-    el.textContent = `A: ${scenarioSummary(a)} | B: ${scenarioSummary(b)}${same ? " | WARNING: A and B are currently identical" : ""}`;
+    const aTxt = a ? `saved${a._savedAt ? ` (${formatSavedAt(a._savedAt)})` : ""}` : "—";
+    const bTxt = b ? `saved${b._savedAt ? ` (${formatSavedAt(b._savedAt)})` : ""}` : "—";
+    el.textContent = `A: ${aTxt} | B: ${bTxt}`;
   };
 
   // ------------------------------ Schedule Builders ------------------------------
+  const isStep23Enabled = () => !!document.getElementById("toggleStep23")?.checked;
+
   const buildSchedules = (params) => {
     const schedules = [];
     schedules[0] = {};
@@ -417,6 +406,11 @@
         const value = getBaseSalary(s, c);
         schedules[0][s][c] = value == null ? null : value;
       }
+    }
+    schedules[0][23] = {};
+    for (const c of COLS) {
+      const step22 = schedules[0][22]?.[c];
+      schedules[0][23][c] = step22 == null ? null : step22 * 1.015;
     }
 
     for (let y = 1; y <= 5; y += 1) {
@@ -431,6 +425,11 @@
           schedules[y][s][c] = prev == null ? null : (prev + flatAdd) * (1 + rate);
         }
       }
+      schedules[y][23] = {};
+      for (const c of COLS) {
+        const step22 = schedules[y][22]?.[c];
+        schedules[y][23][c] = step22 == null ? null : step22 * 1.015;
+      }
     }
     return schedules;
   };
@@ -439,19 +438,55 @@
     const rosterTools = window.BtaRoster;
     const normScale = rosterTools?.normScale || ((value) => value);
     const y = clamp(year, 0, 5);
-    const s = clamp(step, 1, 22);
+    const s = clamp(step, 1, isStep23Enabled() ? 23 : 22);
     const c = normScale(col);
     const value = schedules?.[y]?.[s]?.[c];
     return value == null ? null : Number(value);
   };
 
-  const stepForYear = (baseStep, year) => {
+  const stepForYear = (baseStep, year, options = {}) => {
     const sm = SalaryMath();
-    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year);
-    const s0 = clamp(baseStep, 1, 22);
-    if (year <= 1) return s0;
-    return clamp(s0 + (year - 1), 1, 22);
+    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year, options);
+    const enabled = isStep23Enabled();
+    const eligible = !!options?.step23Year1Eligible;
+    let current = clamp(baseStep, 1, enabled ? 23 : 22);
+    if (!enabled && current > 22) current = 22;
+    if (year <= 0) return current;
+    current = enabled && (current >= 23 || eligible) ? 23 : Math.min(current, 22);
+    if (year === 1) return current;
+    for (let y = 2; y <= year; y += 1) {
+      if (enabled) current = current >= 22 ? 23 : current + 1;
+      else current = Math.min(22, current + 1);
+    }
+    return current;
   };
+
+  const rosterStepForYear = (entry, year) =>
+    stepForYear(entry?.Step, year, { step23Year1Eligible: !!entry?.Step23Year1Eligible });
+
+  const baselineStepForYear = (entry, year) => {
+    const base = clamp(entry?.Step, 1, 22);
+    if (year <= 1) return base;
+    return clamp(base + (year - 1), 1, 22);
+  };
+
+
+  const getSelectedPremiumModes = () => {
+    const familyChecked = !!document.getElementById("netPremiumFamily")?.checked;
+    const individualChecked = !!document.getElementById("netPremiumIndividual")?.checked;
+    const modes = [];
+    if (familyChecked) modes.push("family");
+    if (individualChecked) modes.push("individual");
+    return modes.length ? modes : ["family"];
+  };
+
+  const getPrimaryPremiumMode = () => getSelectedPremiumModes()[0] || "family";
+
+  const getPremiumConfig = (mode) => ({
+    type: mode,
+    label: mode === "individual" ? "Individual" : "Family",
+    annual: mode === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR
+  });
 
   // ------------------------------ AI payload (numbers, not DOM) ------------------------------
   const buildTablesPayload = ({ years, premiumType, compareMode, scheduleBlocks }) => {
@@ -462,8 +497,8 @@
 
     const columns = COLS.filter((c) => !(hideTa && c === "TA"));
 
-    const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
-    const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+    const premiumModes = Array.isArray(premiumType) ? premiumType : [premiumType];
+    const premiumConfigs = premiumModes.map((mode) => getPremiumConfig(mode));
 
     const tables = [];
     (scheduleBlocks || []).forEach((block) => {
@@ -473,13 +508,20 @@
         const pct = hiPct?.[hiYearIdx] ?? 0;
 
         const rows = [];
-        for (let step = 1; step <= 22; step += 1) {
+        for (let step = 1; step <= (isStep23Enabled() ? 23 : 22); step += 1) {
           const cells = {};
           for (const col of columns) {
             const gross = schedules?.[year]?.[step]?.[col];
-            const base = schedules?.[0]?.[step]?.[col];
+            const baseStep = step === 23 ? 22 : step;
+            const base = schedules?.[0]?.[baseStep]?.[col];
             const delta = gross == null || base == null ? null : +(gross - base).toFixed(2);
-            const net = gross == null ? null : +(Number(gross) - premiumValue * Number(pct || 0)).toFixed(2);
+            const net = gross == null
+              ? []
+              : premiumConfigs.map((cfg) => ({
+                  type: cfg.type,
+                  label: cfg.label,
+                  value: +(Number(gross) - cfg.annual * Number(pct || 0)).toFixed(2)
+                }));
             cells[col] = { gross: gross == null ? null : +Number(gross).toFixed(2), delta, net };
           }
           rows.push({ step, cells });
@@ -489,7 +531,7 @@
           title,
           year,
           columns,
-          premium: { type: premiumType, label: premiumLabel, annual: premiumValue },
+          premium: premiumConfigs,
           hiPct: pct,
           rows
         });
@@ -503,7 +545,7 @@
         hideTa,
         showNet,
         showDelta,
-        premiumType
+        premiumType: premiumModes
       },
       tables
     };
@@ -539,6 +581,7 @@
       if (!options.some((opt) => opt.val === extra.val)) options.push(extra);
     });
     options.sort((a, b) => Number(a.val) - Number(b.val));
+
     ids.forEach((id) => {
       const sel = document.getElementById(id);
       if (!sel) return;
@@ -620,7 +663,7 @@
     const map = new Map();
 
     currentRoster.forEach((entry) => {
-      const stepY = stepForYear(entry.Step, year);
+      const stepY = rosterStepForYear(entry, year);
       const col = normScale(entry.Column);
       const salary = salaryAt(schedules, year, stepY, col);
       if (salary == null) return;
@@ -674,7 +717,7 @@
       const rosterOnly = !!opts.rosterOnly;
       const stepsWithRoster = rosterOnly
         ? Array.from(new Set(Array.from(rosterMap.keys()).map((k) => Number(String(k).split("|")[0]) || 0)))
-            .filter((n) => n >= 1 && n <= 22)
+            .filter((n) => n >= 1 && n <= (isStep23Enabled() ? 23 : 22))
             .sort((a, b) => a - b)
         : null;
       const hiYearIdx = Math.max(1, year);
@@ -698,7 +741,7 @@
 
       const stepsToRender = rosterOnly
         ? (stepsWithRoster.length ? stepsWithRoster : [])
-        : Array.from({ length: 22 }, (_, i) => i + 1);
+        : Array.from({ length: isStep23Enabled() ? 23 : 22 }, (_, i) => i + 1);
 
       if (rosterOnly && !stepsToRender.length) {
         const tr = document.createElement("tr");
@@ -710,23 +753,27 @@
         const tr = document.createElement("tr");
         const rowHtml = COLS.map((col) => {
           const value = schedules?.[year]?.[step]?.[col];
-          const baseValue = schedules?.[0]?.[step]?.[col];
+          const baseStep = step === 23 ? 22 : step;
+          const baseValue = schedules?.[0]?.[baseStep]?.[col];
           const rosterEntry = rosterMap.get(`${step}|${col}`);
           const hasRoster = Boolean(rosterEntry);
 
           // "Steps w/ roster only" mode: keep the grid, but only show numbers for cells that have roster.
           const showCellValue = !rosterOnly || hasRoster;
 
-          const premiumType = document.getElementById("netPremiumType")?.value || "family";
-          const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
-          const premium = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+          const premiumModes = getSelectedPremiumModes();
+          const premiumConfigs = premiumModes.map((mode) => getPremiumConfig(mode));
 
           const pct = hiPct?.[hiYearIdx] ?? 0;
           const flatHi = hiFlat?.[hiYearIdx] ?? 0;
-          const netValue =
+          const netValues =
             !showCellValue || value == null
-              ? null
-              : Number((value - premium * pct - flatHi).toFixed(2));
+              ? []
+              : premiumConfigs.map((cfg) => ({
+                  type: cfg.type,
+                  label: cfg.label,
+                  value: Number((value - cfg.annual * pct - flatHi).toFixed(2))
+                }));
           const deltaValue = !showCellValue || value == null || baseValue == null ? null : value - baseValue;
 
           const detailText = hasRoster
@@ -739,12 +786,14 @@
 
           const tooltipAttr = tooltip ? tooltip.replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
 
-          const deltaLine = `<div class="delta-line">Δ vs Y0: ${deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + money(deltaValue)}</div>`;
-          const netLine = `<div class="net-line">Net (${premiumLabel}): ${netValue == null ? "—" : money(netValue)}</div>`;
+          const deltaLine = `<div class="delta-line">Δ vs Y0: ${deltaValue == null ? "—" : (deltaValue >= 0 ? "+" : "") + moneyWhole(deltaValue)}</div>`;
+          const netLine = netValues.length
+            ? netValues.map((entry) => `<div class="net-line">Net (${entry.label}): ${moneyWhole(entry.value)}</div>`).join("")
+            : `<div class="net-line">Net: —</div>`;
 
           return (
             `<td data-col="${col}" class="${hasRoster ? "cell-has-roster" : ""}" ${tooltipAttr ? `title="${tooltipAttr}"` : ""}>` +
-            `<span class="main">${!showCellValue || value == null ? "—" : money(value)}</span>` +
+            `<span class="main">${!showCellValue || value == null ? "—" : moneyWhole(value)}</span>` +
             deltaLine +
             netLine +
             (hasRoster ? `<div class="detail">${detailText}</div>` : "") +
@@ -790,10 +839,6 @@
     const scheduleBlocks = []; // used for AI payload
 
     if (compareOn && scenarioA && scenarioB) {
-      if (scenariosEquivalent(scenarioA, scenarioB)) {
-        setStatus("Scenario A and Scenario B are saved with identical raise/insurance inputs. Change the UI, then save A or B again.");
-      }
-
       const scheduleA = buildSchedules({ yPct: scenarioA.yPct, yFlat: scenarioA.yFlat, hiPct: scenarioA.hiPct });
       const scheduleB = buildSchedules({ yPct: scenarioB.yPct, yFlat: scenarioB.yFlat, hiPct: scenarioB.hiPct });
 
@@ -831,7 +876,7 @@
     updateRosterDisplayFromToggles();
 
     // Always build payload for Bee/export (works even if renderArea is hidden)
-    const premiumType = document.getElementById("netPremiumType")?.value || "family";
+    const premiumType = getSelectedPremiumModes();
     const payload = buildTablesPayload({
       years,
       premiumType,
@@ -929,7 +974,7 @@
 
     // -------------------- helpers --------------------
     const getPremium = () => {
-      const premiumType = document.getElementById("netPremiumType")?.value || "family";
+      const premiumType = getPrimaryPremiumMode();
       return {
         premiumType,
         premiumLabel: premiumType === "individual" ? "Individual" : "Family",
@@ -996,7 +1041,7 @@
       const contractPayrollForYear = (year) => {
         let total = 0;
         roster.forEach((entry) => {
-          const stepY = stepForYear(entry.Step, year);
+          const stepY = rosterStepForYear(entry, year);
           const col = normScale(entry.Column);
           const value = schedules?.[year]?.[stepY]?.[col];
           if (value == null) return;
@@ -1008,7 +1053,7 @@
       const baselinePayrollForYear = (year) => {
         let total = 0;
         roster.forEach((entry) => {
-          const stepY = stepForYear(entry.Step, year);
+          const stepY = baselineStepForYear(entry, year);
           const col = normScale(entry.Column);
           const value = schedules0?.[stepY]?.[col];
           if (value == null) return;
@@ -1393,16 +1438,15 @@
       const normScale = rosterTools?.normScale || ((value) => value);
 
       const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
-      const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
+      const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, isStep23Enabled() ? 23 : 22);
       const col = normScale(document.getElementById("sl_scale")?.value || "M50");
 
       const scenario = document.getElementById("sl_scenario")?.value || "ui";
       const showHi = (document.getElementById("sl_show_hi")?.value || "yes") === "yes";
       const hiYearIdx = Math.max(1, year);
 
-      const premiumType = document.getElementById("netPremiumType")?.value || "family";
-      const premiumLabel = premiumType === "individual" ? "Individual" : "Family";
-      const premiumValue = premiumType === "individual" ? IND_PREM_YEAR : FAM_PREM_YEAR;
+      const premiumModes = getSelectedPremiumModes();
+      const premiumConfigs = premiumModes.map((mode) => getPremiumConfig(mode));
 
       const doOne = (label, schedules, hiPct, hiFlat) => {
         const effectiveStep = stepForYear(step, year);
@@ -1413,13 +1457,18 @@
         const sm = SalaryMath();
         const pct = hiPct?.[hiYearIdx] ?? 0;
         const flatAdd = hiFlat?.[hiYearIdx] ?? 0;
-        const baseNet =
-          typeof sm.computeHealthInsuranceNet === "function"
-            ? sm.computeHealthInsuranceNet(gross, pct, premiumValue)
-            : Number((gross - premiumValue * pct).toFixed(2));
-        const net = Number((baseNet - flatAdd).toFixed(2));
+        const netText = premiumConfigs
+          .map((cfg) => {
+            const baseNet =
+              typeof sm.computeHealthInsuranceNet === "function"
+                ? sm.computeHealthInsuranceNet(gross, pct, cfg.annual)
+                : Number((gross - cfg.annual * pct).toFixed(2));
+            const net = Number((baseNet - flatAdd).toFixed(2));
+            return `Net (${cfg.label} premium): ${money(net)}`;
+          })
+          .join(" | ");
 
-        return `${label}: Gross ${money(gross)} | Net (${premiumLabel} premium): ${money(net)}`;
+        return `${label}: Gross ${money(gross)} | ${netText}`;
       };
 
       const output = [];
@@ -1453,7 +1502,7 @@
       if (typeof sm.explainSalaryAt !== "function") return;
 
       const year = clamp(+document.getElementById("sl_year")?.value || 0, 0, 5);
-      const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, 22);
+      const step = clamp(+document.getElementById("sl_step")?.value || 1, 1, isStep23Enabled() ? 23 : 22);
       const col = normScale(document.getElementById("sl_scale")?.value || "M50");
 
       const params = getUIParams();
@@ -1467,6 +1516,25 @@
       if (scenario === "B") {
         const sB = loadScenario("B");
         if (sB) payload = sB;
+      }
+      const schedulesForExplain = buildSchedules(payload);
+      const el = document.getElementById("sl_explain_out");
+      if (!el) return;
+
+      if (isStep23Enabled() && step === 23) {
+        const step22Value = salaryAt(schedulesForExplain, year, 22, col);
+        const step23Value = salaryAt(schedulesForExplain, year, 23, col);
+        if (step22Value == null || step23Value == null) {
+          el.textContent = "Unable to explain this salary.";
+          return;
+        }
+        el.textContent = [
+          "Step 23 is derived from the same year’s Step 22 value, then multiplied by 1.015.",
+          `Year ${year} Step 22 ${col}: ${moneyWhole(step22Value)}`,
+          `Year ${year} Step 23 ${col}: ${moneyWhole(step23Value)}`,
+          `Calculation: ${moneyWhole(step22Value)} × 1.015 = ${moneyWhole(step23Value)}`
+        ].join("\n");
+        return;
       }
 
       const explanation = sm.explainSalaryAt(step, col, 1, year, {
@@ -1492,8 +1560,7 @@
         `Final salary: ${money(explanation.finalSalary)}`
       ].filter(Boolean);
 
-      const el = document.getElementById("sl_explain_out");
-      if (el) el.textContent = lines.join("\n");
+      el.textContent = lines.join("\n");
     });
 
     // Toggles
@@ -1502,6 +1569,14 @@
     safeAddListener("toggleHideTA", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleCompareY0", "change", updateRosterDisplayFromToggles);
     safeAddListener("toggleNetPay", "change", updateRosterDisplayFromToggles);
+    safeAddListener("toggleStep23", "change", () => {
+      updateRosterDisplayFromToggles();
+      window.BtaAffordability?.computeAffordability?.();
+      const renderArea = document.getElementById("renderArea");
+      if (renderArea && renderArea.children && renderArea.children.length) {
+        generateSalaryTable({ mode: "inline" });
+      }
+    });
 
     // Filter: Steps w/ roster only (affects generation)
     safeAddListener("showRosterStepsOnly", "change", () => {
@@ -1511,11 +1586,13 @@
       }
     });
 
-    safeAddListener("netPremiumType", "change", () => {
-      const renderArea = document.getElementById("renderArea");
-      if (renderArea && renderArea.children && renderArea.children.length) {
-        generateSalaryTable({ mode: "inline" });
-      }
+    ["netPremiumFamily", "netPremiumIndividual"].forEach((id) => {
+      safeAddListener(id, "change", () => {
+        const renderArea = document.getElementById("renderArea");
+        if (renderArea && renderArea.children && renderArea.children.length) {
+          generateSalaryTable({ mode: "inline" });
+        }
+      });
     });
 
     // Affordability recalcs
@@ -1527,7 +1604,7 @@
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",
-      "netPremiumType"
+      "netPremiumFamily","netPremiumIndividual","toggleStep23"
     ];
 
     watchIds.forEach((id) => {
@@ -1610,6 +1687,8 @@
       clamp,
       parseYearInput,
       stepForYear,
+      rosterStepForYear,
+      baselineStepForYear,
       getUIParams,
       buildSchedules,
       salaryAt,
