@@ -530,12 +530,15 @@
       options.push({ val, label });
     }
 
-    // Add 3.1% as an extra raise option without changing the existing quarter-point options.
-    const extraRaiseOption = { val: "0.0310", label: "3.1%" };
-    if (!options.some((opt) => opt.val === extraRaiseOption.val)) {
-      options.push(extraRaiseOption);
-      options.sort((a, b) => Number(a.val) - Number(b.val));
-    }
+    // Add 2.9% and 3.1% as extra raise options without changing the existing quarter-point options.
+    const extraRaiseOptions = [
+      { val: "0.0290", label: "2.9%" },
+      { val: "0.0310", label: "3.1%" }
+    ];
+    extraRaiseOptions.forEach((extra) => {
+      if (!options.some((opt) => opt.val === extra.val)) options.push(extra);
+    });
+    options.sort((a, b) => Number(a.val) - Number(b.val));
     ids.forEach((id) => {
       const sel = document.getElementById(id);
       if (!sel) return;
