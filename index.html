@@ -595,13 +595,13 @@ Changelog:
           <input type="text" id="tableYear" placeholder="e.g., 1-5" value="1-3"/>
           <small class="hint" id="statusMsg"></small>
         </div>
-        <div class="form-group"><label>GF Recurring Revenues — ST-3 Baseline</label>
-          <input type="number" id="gfBase" value="20762012" step="1"/>
-          <small class="hint">Change if you have an updated ST-3.</small>
+        <div class="form-group"><label>2026–27 Proposed Budget / GF Revenue Baseline</label>
+          <input type="number" id="gfBase" value="23876426" step="1"/>
+          <small class="hint">Updated from the April 21, 2026 draft budget proposal.</small>
         </div>
-        <div class="form-group"><label>GF Growth Assumption (%/yr)</label>
-          <input type="number" id="gfGrowthPct" value="3.75" step="0.01"/>
-          <small class="hint">Bridgehampton-realistic default.</small>
+        <div class="form-group"><label>Budget-to-Budget Growth Assumption (%/yr)</label>
+          <input type="number" id="gfGrowthPct" value="1.60" step="0.01"/>
+          <small class="hint">2026–27 proposed budget growth is 1.60%.</small>
         </div>
       </fieldset>
 
@@ -698,26 +698,28 @@ Changelog:
 
       <fieldset>
         <legend>District Affordability</legend>
-        <div class="form-group"><label>Baseline Budget (GF $)</label>
-          <input type="number" id="budget" value="20092568" step="1"/>
+        <div class="form-group"><label>2026–27 Proposed Budget Total ($)</label>
+          <input type="number" id="budget" value="23876426" step="1"/>
+          <small class="hint">Draft proposed budget total from April 21, 2026 presentation.</small>
         </div>
-        <div class="form-group"><label>Max Allowable Budget Increase (%)</label>
-          <input type="number" id="maxBudgetPct" value="2" step="0.01"/>
+        <div class="form-group"><label>Budget-to-Budget Increase (%)</label>
+          <input type="number" id="maxBudgetPct" value="1.60" step="0.01"/>
         </div>
-        <div class="form-group"><label>Max Allowable Budget Increase ($)</label>
-          <input type="number" id="maxBudgetFlat" value="401851" step="1"/>
+        <div class="form-group"><label>Budget-to-Budget Increase ($)</label>
+          <input type="number" id="maxBudgetFlat" value="376648" step="1"/>
         </div>
-        <div class="form-group"><label>State Aid Growth (%/yr)</label>
-          <input type="number" id="stateAidPct" value="1.15" step="0.01"/>
+        <div class="form-group"><label>Additional State Aid Not Already in Budget (% of budget)</label>
+          <input type="number" id="stateAidPct" value="0" step="0.01"/>
+          <small class="hint">Leave 0 when using the full proposed budget, because the $1,000,260 state aid projection is already included.</small>
         </div>
-        <div class="form-group"><label>Additional Revenue ($/yr)</label>
+        <div class="form-group"><label>Additional Revenue Not Already in Budget ($/yr)</label>
           <input type="number" id="addlRevenue" value="0" step="1"/>
         </div>
-        <div class="form-group"><label>Other Savings/Costs ($/yr)</label>
+        <div class="form-group"><label>Other Savings/Costs Not Already in Budget ($/yr)</label>
           <input type="number" id="otherSavings" value="0" step="1"/>
         </div>
-        <div class="form-group"><label>Recurring Surplus / Underbudget Amount ($/yr)</label>
-          <input type="number" id="recurringSurplus" value="1700000" step="1"/>
+        <div class="form-group"><label>Recurring Surplus / Underbudget Amount Not Already Budgeted ($/yr)</label>
+          <input type="number" id="recurringSurplus" value="0" step="1"/>
         </div>
         <div class="form-group"><label>One-Time Fund Balance Available ($)</label>
           <input type="number" id="oneTimeFund" value="0" step="1"/>
@@ -731,7 +733,7 @@ Changelog:
             <option value="spread">Spread evenly Y1–Y5</option>
           </select>
         </div>
-        <div class="soft">One-time fund balance can cover a gap temporarily but does not make recurring costs sustainable.</div>
+        <div class="soft">One-time fund balance can cover a gap temporarily but does not make recurring costs sustainable. Appropriated fund balance/reserves already built into the proposed budget should not be counted again here.</div>
         <div class="soft">NY context: Districts often track unassigned fund balance (RPTL 1318 4% concept) and may use reserves/appropriated fund balance/transfers per local actions. (General info, not legal advice.)</div>
         <div id="affordabilitySummaryRecurring" class="banner" style="display:none"></div>
         <div id="affordabilitySummaryCash" class="banner" style="display:none"></div>
@@ -883,10 +885,10 @@ Changelog:
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-05-05-step23-y1" defer></script>
-<script src="roster.js?v=2026-05-05-step23-y1" defer></script>
-<script src="affordability.js?v=2026-05-05-step23-y1" defer></script>
-<script src="app.js?v=2026-05-05-step23-y1" defer></script>
+<script src="salary-math.js?v=2026-05-05-budget-2026-27" defer></script>
+<script src="roster.js?v=2026-05-05-budget-2026-27" defer></script>
+<script src="affordability.js?v=2026-05-05-budget-2026-27" defer></script>
+<script src="app.js?v=2026-05-05-budget-2026-27" defer></script>
 
 <script>
   window.BEE_AI_ENDPOINT =
