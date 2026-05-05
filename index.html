@@ -719,9 +719,16 @@ Changelog:
         <div class="form-group"><label>Other Savings/Costs Not Already in Budget ($/yr)</label>
           <input type="number" id="otherSavings" value="0" step="1"/>
         </div>
+        <div class="form-group">
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleRecurringOffsets" checked/>
+            Apply recurring offsets/cushion in affordability test
+          </label>
+          <small class="hint">Turn this off for official-budget-only mode. When off, the recurring-offset column becomes $0 and the affordability test uses only projected budget growth and salary-envelope capacity.</small>
+        </div>
         <div class="form-group"><label>Documented Historical Underbudget / Recurring Cushion ($/yr)</label>
           <input type="number" id="recurringSurplus" value="1325624" step="1"/>
-          <small class="hint">Default uses the documented 3-year average expenditures under budget from the ST-3/budget analysis. Set to 0 for official-budget-only mode.</small>
+          <small class="hint">Default uses the documented 3-year average expenditures under budget from the ST-3/budget analysis. The toggle above controls whether this cushion is applied.</small>
         </div>
         <div class="form-group"><label>Known Teacher Salary-Code Budget Envelope ($)</label>
           <input type="number" id="salaryBudgetEnvelope" value="7189767" step="1"/>

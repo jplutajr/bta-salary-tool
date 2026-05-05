@@ -261,6 +261,7 @@
       stateAidPct: +document.getElementById("stateAidPct")?.value || 0,
       addlRevenue: +document.getElementById("addlRevenue")?.value || 0,
       otherSavings: +document.getElementById("otherSavings")?.value || 0,
+      toggleRecurringOffsets: document.getElementById("toggleRecurringOffsets")?.checked !== false,
       recurringSurplus: +document.getElementById("recurringSurplus")?.value || 0,
       salaryBudgetEnvelope: +document.getElementById("salaryBudgetEnvelope")?.value || 0,
       salaryBudgetEnvelopeGrowthPct: +document.getElementById("salaryBudgetEnvelopeGrowthPct")?.value || 0,
@@ -324,6 +325,8 @@
     setVal("stateAidPct", String(payload.stateAidPct ?? ""));
     setVal("addlRevenue", String(payload.addlRevenue ?? ""));
     setVal("otherSavings", String(payload.otherSavings ?? ""));
+    const recurringToggle = document.getElementById("toggleRecurringOffsets");
+    if (recurringToggle) recurringToggle.checked = payload.toggleRecurringOffsets !== false;
     setVal("recurringSurplus", String(payload.recurringSurplus ?? ""));
     setVal("salaryBudgetEnvelope", String(payload.salaryBudgetEnvelope ?? ""));
     setVal("salaryBudgetEnvelopeGrowthPct", String(payload.salaryBudgetEnvelopeGrowthPct ?? ""));
@@ -1029,7 +1032,9 @@
 
       const addlRevenue = Number(payload?.addlRevenue || 0) || 0;
       const otherSavings = Number(payload?.otherSavings || 0) || 0;
-      const recurringSurplus = Number(payload?.recurringSurplus || 0) || 0;
+      const recurringOffsetsEnabled = payload?.toggleRecurringOffsets !== false;
+      const recurringSurplusInput = Number(payload?.recurringSurplus || 0) || 0;
+      const recurringSurplus = recurringOffsetsEnabled ? recurringSurplusInput : 0;
       const salaryBudgetEnvelope = Number(payload?.salaryBudgetEnvelope || 0) || 0;
       const salaryEnvelopeGrowthPct = clamp(Number(payload?.salaryBudgetEnvelopeGrowthPct ?? payload?.maxBudgetPct ?? 0), 0, 100) / 100;
       const oneTimeFund = Number(payload?.oneTimeFund || 0) || 0;
@@ -1057,7 +1062,7 @@
 
       const otherObligations = budget * otherPct;
       const reallocAmount = otherObligations * reallocPct;
-      const recurringOffsets = recurringSurplus + reallocAmount;
+      const recurringOffsets = recurringOffsetsEnabled ? (recurringSurplus + reallocAmount) : 0;
       const salaryEnvelopeForYear = (year) => (
         salaryBudgetEnvelope > 0
           ? salaryBudgetEnvelope * Math.pow(1 + salaryEnvelopeGrowthPct, Math.max(0, year - 1))
@@ -1149,7 +1154,8 @@
           otherPct,
           addlRevenue,
           otherSavings,
-          recurringSurplus,
+          recurringSurplus: recurringSurplusInput,
+          recurringOffsetsEnabled,
           reallocPct,
           oneTimeFund,
           oneTimeMode
@@ -1357,6 +1363,7 @@
           ["Adders (% on incremental)", `${Number(bi.adderPct || 0).toFixed(2)}%`],
           ["Additional revenue", money(bi.addlRevenue || 0)],
           ["Other savings", money(bi.otherSavings || 0)],
+          ["Recurring offsets applied", (bi.toggleRecurringOffsets === false ? "No" : "Yes")],
           ["Historical recurring cushion", money(bi.recurringSurplus || 0)],
           ["Salary-code envelope", money(bi.salaryBudgetEnvelope || 0)],
           ["Salary-envelope growth", `${Number(bi.salaryBudgetEnvelopeGrowthPct ?? bi.maxBudgetPct ?? 0).toFixed(2)}%`],
@@ -1385,7 +1392,7 @@
         ]),
         [32, 62, 62, 34, 62, 58, 62, 58, 38]
       );
-      p(`Recurring result: ${(aff.derived.anyFailRecurring || aff.derived.anyFailSalaryEnvelope) ? "FLAGGED (at least one year)" : "PASS (all years)"} — cumulative Year 5 budget-growth capacity ${money(aff.derived.baseCap)}; annual recurring cushion ${money(aff.derived.recurringOffsets)}.`);
+      p(`Recurring result: ${(aff.derived.anyFailRecurring || aff.derived.anyFailSalaryEnvelope) ? "FLAGGED (at least one year)" : "PASS (all years)"} — cumulative Year 5 budget-growth capacity ${money(aff.derived.baseCap)}; recurring offsets ${aff.inputs.recurringOffsetsEnabled ? "ON" : "OFF"}; annual applied offsets ${money(aff.derived.recurringOffsets)}.`);
 
       table(
         ["Year", "Net Cash (one-time applied)", "One-time applied", "PASS?"],
@@ -1652,7 +1659,7 @@
       "year1","year2","year3","year4","year5",
       "flat1","flat2","flat3","flat4","flat5",
       "adderPct","otherPct","budget","maxBudgetPct","maxBudgetFlat",
-      "stateAidPct","addlRevenue","otherSavings","recurringSurplus","salaryBudgetEnvelope","salaryBudgetEnvelopeGrowthPct",
+      "stateAidPct","addlRevenue","otherSavings","toggleRecurringOffsets","recurringSurplus","salaryBudgetEnvelope","salaryBudgetEnvelopeGrowthPct",
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",

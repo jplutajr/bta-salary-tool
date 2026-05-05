@@ -11,7 +11,9 @@
     const adderPct = app.clamp(parseFloat(document.getElementById("adderPct")?.value || "0"), 0, 100) / 100;
     const addlRevenue = +document.getElementById("addlRevenue")?.value || 0;
     const otherSavings = +document.getElementById("otherSavings")?.value || 0;
-    const recurringSurplus = +document.getElementById("recurringSurplus")?.value || 0;
+    const recurringOffsetsEnabled = document.getElementById("toggleRecurringOffsets")?.checked !== false;
+    const recurringSurplusInput = +document.getElementById("recurringSurplus")?.value || 0;
+    const recurringSurplus = recurringOffsetsEnabled ? recurringSurplusInput : 0;
     const salaryBudgetEnvelope = +document.getElementById("salaryBudgetEnvelope")?.value || 0;
     const salaryEnvelopeGrowthPct = app.clamp(+document.getElementById("salaryBudgetEnvelopeGrowthPct")?.value || 0, 0, 100) / 100;
     const oneTimeFund = +document.getElementById("oneTimeFund")?.value || 0;
@@ -40,7 +42,7 @@
 
     const otherObligations = budget * otherPct;
     const reallocAmount = otherObligations * reallocPct;
-    const recurringOffsets = recurringSurplus + reallocAmount;
+    const recurringOffsets = recurringOffsetsEnabled ? (recurringSurplus + reallocAmount) : 0;
     const salaryEnvelopeForYear = (year) => (
       salaryBudgetEnvelope > 0
         ? salaryBudgetEnvelope * Math.pow(1 + salaryEnvelopeGrowthPct, Math.max(0, year - 1))
@@ -113,7 +115,7 @@
         <td>${app.money(incrementalWithAdders)}</td>
         <td>${projectedSalaryEnvelope > 0 ? app.money(projectedSalaryEnvelope) : "—"}</td>
         <td class="${passSalaryEnvelope ? "ok" : "bad"}">${passSalaryEnvelope ? "PASS" : "FAIL"}</td>
-        <td>${app.money(cumulativeOffsets)}</td>
+        <td>${recurringOffsetsEnabled ? app.money(cumulativeOffsets) : app.money(0)}</td>
         <td>${app.money(netImpactRecurring)}</td>
         <td>${app.money(cumulativeBudgetCapacity)}</td>
         <td class="${passRecurring ? "ok" : "bad"}">${passRecurring ? "PASS" : "FAIL"}</td>
@@ -136,7 +138,7 @@
       recurringSummary.className = `banner ${hasRecurringFlag ? "fail" : "pass"}`;
       recurringSummary.innerHTML = `
         <div><strong>Recurring Affordability: ${hasRecurringFlag ? "FLAGGED" : "PASS (all years)"}${failText}</strong></div>
-        <div class="soft">Year 1 official budget increase = ${app.money(firstYearIncrease)}. Future years use cumulative projected budget-growth capacity. Historical recurring cushion/underbudget default = ${app.money(recurringSurplus)}. Salary-code envelope starts at ${salaryBudgetEnvelope > 0 ? app.money(salaryBudgetEnvelope) : "not used"} and grows at ${(salaryEnvelopeGrowthPct * 100).toFixed(2)}%/yr. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
+        <div class="soft">Year 1 official budget increase = ${app.money(firstYearIncrease)}. Future years use cumulative projected budget-growth capacity. Recurring offsets are ${recurringOffsetsEnabled ? "ON" : "OFF"}; documented cushion input = ${app.money(recurringSurplusInput)} and applied annual offsets = ${app.money(recurringOffsets)}. Salary-code envelope starts at ${salaryBudgetEnvelope > 0 ? app.money(salaryBudgetEnvelope) : "not used"} and grows at ${(salaryEnvelopeGrowthPct * 100).toFixed(2)}%/yr. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
       `;
     }
     if (cashSummary) {
