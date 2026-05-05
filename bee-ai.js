@@ -27,6 +27,16 @@
     return Number.isFinite(value) ? value : null;
   };
 
+  const getSelectedPremiumModes = () => {
+    const familyChecked = !!document.getElementById("netPremiumFamily")?.checked;
+    const individualChecked = !!document.getElementById("netPremiumIndividual")?.checked;
+    const modes = [];
+    if (familyChecked) modes.push("family");
+    if (individualChecked) modes.push("individual");
+    return modes.length ? modes : ["family"];
+  };
+
+
   const readRenderedTables = () => {
     const renderArea = document.getElementById("renderArea");
     if (!renderArea) return null;
@@ -34,7 +44,7 @@
     const hideTa = renderArea.classList.contains("hide-ta");
     const showNet = renderArea.classList.contains("show-net");
     const showDelta = renderArea.classList.contains("show-delta");
-    const premiumType = document.getElementById("netPremiumType")?.value || "family";
+    const premiumType = getSelectedPremiumModes();
 
     const results = [];
     const cards = Array.from(renderArea.querySelectorAll(".card"));
@@ -279,7 +289,7 @@
           hideTa: renderArea?.classList.contains("hide-ta") || false,
           showNet: renderArea?.classList.contains("show-net") || false,
           showDelta: renderArea?.classList.contains("show-delta") || false,
-          premiumType: document.getElementById("netPremiumType")?.value || "family"
+          premiumType: getSelectedPremiumModes()
         },
         tables: effectiveTablesPayload.tables || [],
         roster: {
@@ -288,7 +298,7 @@
         },
         page: {
           url: location.href,
-          premiumType: document.getElementById("netPremiumType")?.value || "family"
+          premiumType: getSelectedPremiumModes()
         }
       };
 

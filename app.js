@@ -27,7 +27,7 @@
   })();
 
   // ------------------------------ Constants ------------------------------
-  const BUILD_VERSION = "v0.5.4-budget-realism";
+  const BUILD_VERSION = "v0.5.5-budget-realism-step23-fail-years";
   const BUILD_TIME = new Date().toLocaleString();
 
   // 2025 premiums (annual)
@@ -263,6 +263,7 @@
       otherSavings: +document.getElementById("otherSavings")?.value || 0,
       recurringSurplus: +document.getElementById("recurringSurplus")?.value || 0,
       salaryBudgetEnvelope: +document.getElementById("salaryBudgetEnvelope")?.value || 0,
+      salaryBudgetEnvelopeGrowthPct: +document.getElementById("salaryBudgetEnvelopeGrowthPct")?.value || 0,
       oneTimeFund: +document.getElementById("oneTimeFund")?.value || 0,
       reallocPct: +document.getElementById("reallocPct")?.value || 0,
       oneTimeMode: document.getElementById("oneTimeMode")?.value || "y1"
@@ -325,6 +326,7 @@
     setVal("otherSavings", String(payload.otherSavings ?? ""));
     setVal("recurringSurplus", String(payload.recurringSurplus ?? ""));
     setVal("salaryBudgetEnvelope", String(payload.salaryBudgetEnvelope ?? ""));
+    setVal("salaryBudgetEnvelopeGrowthPct", String(payload.salaryBudgetEnvelopeGrowthPct ?? ""));
     setVal("oneTimeFund", String(payload.oneTimeFund ?? ""));
     setVal("reallocPct", String(payload.reallocPct ?? ""));
     setVal("oneTimeMode", payload.oneTimeMode || "y1");
@@ -448,17 +450,25 @@
   };
 
   const stepForYear = (baseStep, year, options = {}) => {
-    const sm = SalaryMath();
-    if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year, options);
+    // Keep this logic local instead of delegating to SalaryMath.
+    // That prevents an older cached salary-math.js from disabling the Step 23 Year 1 toggle.
     const enabled = isStep23Enabled();
     const eligible = !!options?.step23Year1Eligible;
     const allYear1 = isStep23Year1AllEnabled();
-    let current = clamp(baseStep, 1, enabled ? 23 : 22);
+    const yIdx = Number(year) || 0;
+    let current = clamp(Number(baseStep) || 1, 1, enabled ? 23 : 22);
+
     if (!enabled && current > 22) current = 22;
-    if (year <= 0) return current;
-    current = enabled && (current >= 23 || eligible || (allYear1 && current >= 22)) ? 23 : Math.min(current, 22);
-    if (year === 1) return current;
-    for (let y = 2; y <= year; y += 1) {
+    if (yIdx <= 0) return current;
+
+    // Year 1 normally honors cleaned-roster Step 23 placements.
+    // Optional toggle moves every Step 22 staff member to Step 23 immediately in Year 1.
+    if (enabled && (current >= 23 || eligible || (allYear1 && current >= 22))) current = 23;
+    else current = Math.min(current, 22);
+
+    if (yIdx === 1) return current;
+
+    for (let y = 2; y <= yIdx; y += 1) {
       if (enabled) current = current >= 22 ? 23 : current + 1;
       else current = Math.min(22, current + 1);
     }
@@ -1021,6 +1031,7 @@
       const otherSavings = Number(payload?.otherSavings || 0) || 0;
       const recurringSurplus = Number(payload?.recurringSurplus || 0) || 0;
       const salaryBudgetEnvelope = Number(payload?.salaryBudgetEnvelope || 0) || 0;
+      const salaryEnvelopeGrowthPct = clamp(Number(payload?.salaryBudgetEnvelopeGrowthPct ?? payload?.maxBudgetPct ?? 0), 0, 100) / 100;
       const oneTimeFund = Number(payload?.oneTimeFund || 0) || 0;
       const reallocPct = clamp(Number(payload?.reallocPct || 0), 0, 100) / 100;
       const oneTimeMode = payload?.oneTimeMode || "y1";
@@ -1047,6 +1058,11 @@
       const otherObligations = budget * otherPct;
       const reallocAmount = otherObligations * reallocPct;
       const recurringOffsets = recurringSurplus + reallocAmount;
+      const salaryEnvelopeForYear = (year) => (
+        salaryBudgetEnvelope > 0
+          ? salaryBudgetEnvelope * Math.pow(1 + salaryEnvelopeGrowthPct, Math.max(0, year - 1))
+          : 0
+      );
 
       const oneTimePerYear = oneTimeMode === "spread" ? oneTimeFund / 5 : 0;
 
@@ -1076,6 +1092,7 @@
 
       let anyFailRecurring = false;
       let anyFailCash = false;
+      let anyFailSalaryEnvelope = false;
 
       years.forEach((year) => {
         const contract = contractPayrollForYear(year);
@@ -1091,10 +1108,12 @@
         const oneTimeApplied = oneTimeMode === "y1" ? (year === 1 ? oneTimeFund : 0) : oneTimePerYear * year;
         const netCash = incWithAdders - (cumulativeOffsets + oneTimeApplied);
 
-        const passSalaryEnvelope = salaryBudgetEnvelope <= 0 || contract <= salaryBudgetEnvelope;
+        const projectedSalaryEnvelope = salaryEnvelopeForYear(year);
+        const passSalaryEnvelope = projectedSalaryEnvelope <= 0 || contract <= projectedSalaryEnvelope;
         const passRecurring = netRecurring <= cumulativeBudgetCapacity;
         const passCash = netCash <= cumulativeBudgetCapacity;
 
+        if (!passSalaryEnvelope) anyFailSalaryEnvelope = true;
         if (!passRecurring) anyFailRecurring = true;
         if (!passCash) anyFailCash = true;
 
@@ -1103,7 +1122,7 @@
           contract,
           baseline,
           incWithAdders,
-          salaryBudgetEnvelope,
+          salaryBudgetEnvelope: projectedSalaryEnvelope,
           passSalaryEnvelope,
           recurringOffsets: cumulativeOffsets,
           oneTimeApplied,
@@ -1125,6 +1144,7 @@
           budgetIncreaseCapacity: firstYearIncrease,
           additionalStateAid: additionalStateAidY1,
           salaryBudgetEnvelope,
+          salaryEnvelopeGrowthPct: salaryEnvelopeGrowthPct * 100,
           stateAidPct,
           otherPct,
           addlRevenue,
@@ -1138,6 +1158,7 @@
           baseCap: cumulativeBudgetCapacityForYear(5),
           recurringOffsets,
           anyFailRecurring,
+          anyFailSalaryEnvelope,
           anyFailCash
         }
       };
@@ -1338,6 +1359,7 @@
           ["Other savings", money(bi.otherSavings || 0)],
           ["Historical recurring cushion", money(bi.recurringSurplus || 0)],
           ["Salary-code envelope", money(bi.salaryBudgetEnvelope || 0)],
+          ["Salary-envelope growth", `${Number(bi.salaryBudgetEnvelopeGrowthPct ?? bi.maxBudgetPct ?? 0).toFixed(2)}%`],
           ["Realloc (% of other obligations)", `${Number(bi.reallocPct || 0).toFixed(2)}%`],
           ["One-time fund", money(bi.oneTimeFund || 0)],
           ["One-time mode", String(bi.oneTimeMode || "y1")]
@@ -1363,7 +1385,7 @@
         ]),
         [32, 62, 62, 34, 62, 58, 62, 58, 38]
       );
-      p(`Recurring result: ${aff.derived.anyFailRecurring ? "FAIL (at least one year)" : "PASS (all years)"} — cumulative Year 5 budget-growth capacity ${money(aff.derived.baseCap)}; annual recurring cushion ${money(aff.derived.recurringOffsets)}.`);
+      p(`Recurring result: ${(aff.derived.anyFailRecurring || aff.derived.anyFailSalaryEnvelope) ? "FLAGGED (at least one year)" : "PASS (all years)"} — cumulative Year 5 budget-growth capacity ${money(aff.derived.baseCap)}; annual recurring cushion ${money(aff.derived.recurringOffsets)}.`);
 
       table(
         ["Year", "Net Cash (one-time applied)", "One-time applied", "PASS?"],
@@ -1630,7 +1652,7 @@
       "year1","year2","year3","year4","year5",
       "flat1","flat2","flat3","flat4","flat5",
       "adderPct","otherPct","budget","maxBudgetPct","maxBudgetFlat",
-      "stateAidPct","addlRevenue","otherSavings","recurringSurplus","salaryBudgetEnvelope",
+      "stateAidPct","addlRevenue","otherSavings","recurringSurplus","salaryBudgetEnvelope","salaryBudgetEnvelopeGrowthPct",
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",
@@ -1722,6 +1744,8 @@
       getUIParams,
       buildSchedules,
       salaryAt,
+      isStep23Enabled,
+      isStep23Year1AllEnabled,
       serializeScenarioFromUI,
       applyScenarioToUI,
       saveScenario,

@@ -13,6 +13,7 @@
     const otherSavings = +document.getElementById("otherSavings")?.value || 0;
     const recurringSurplus = +document.getElementById("recurringSurplus")?.value || 0;
     const salaryBudgetEnvelope = +document.getElementById("salaryBudgetEnvelope")?.value || 0;
+    const salaryEnvelopeGrowthPct = app.clamp(+document.getElementById("salaryBudgetEnvelopeGrowthPct")?.value || 0, 0, 100) / 100;
     const oneTimeFund = +document.getElementById("oneTimeFund")?.value || 0;
     const reallocPct = app.clamp(+document.getElementById("reallocPct")?.value || 0, 0, 100) / 100;
     const oneTimeMode = document.getElementById("oneTimeMode")?.value || "y1";
@@ -40,6 +41,11 @@
     const otherObligations = budget * otherPct;
     const reallocAmount = otherObligations * reallocPct;
     const recurringOffsets = recurringSurplus + reallocAmount;
+    const salaryEnvelopeForYear = (year) => (
+      salaryBudgetEnvelope > 0
+        ? salaryBudgetEnvelope * Math.pow(1 + salaryEnvelopeGrowthPct, Math.max(0, year - 1))
+        : 0
+    );
 
     const schedules0 = schedules[0];
     const tbody = document.getElementById("affordabilityTableBody");
@@ -50,6 +56,9 @@
     let anyFailRecurring = false;
     let anyFailCash = false;
     let anyFailSalaryEnvelope = false;
+    const failYearsRecurring = [];
+    const failYearsCash = [];
+    const failYearsSalaryEnvelope = [];
     const oneTimePerYear = oneTimeMode === "spread" ? oneTimeFund / 5 : 0;
 
     const rosterPayrollForYear = (year) => {
@@ -88,12 +97,13 @@
       const oneTimeApplied = oneTimeMode === "y1" ? (year === 1 ? oneTimeFund : 0) : oneTimePerYear * year;
       const netImpactCash = incrementalWithAdders - (cumulativeOffsets + oneTimeApplied);
 
-      const passSalaryEnvelope = salaryBudgetEnvelope <= 0 || contractPayroll <= salaryBudgetEnvelope;
+      const projectedSalaryEnvelope = salaryEnvelopeForYear(year);
+      const passSalaryEnvelope = projectedSalaryEnvelope <= 0 || contractPayroll <= projectedSalaryEnvelope;
       const passRecurring = netImpactRecurring <= cumulativeBudgetCapacity;
       const passCash = netImpactCash <= cumulativeBudgetCapacity;
-      if (!passSalaryEnvelope) anyFailSalaryEnvelope = true;
-      if (!passRecurring) anyFailRecurring = true;
-      if (!passCash) anyFailCash = true;
+      if (!passSalaryEnvelope) { anyFailSalaryEnvelope = true; failYearsSalaryEnvelope.push(year); }
+      if (!passRecurring) { anyFailRecurring = true; failYearsRecurring.push(year); }
+      if (!passCash) { anyFailCash = true; failYearsCash.push(year); }
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -101,7 +111,7 @@
         <td>${app.money(contractPayroll)}</td>
         <td>${app.money(baselinePayroll)}</td>
         <td>${app.money(incrementalWithAdders)}</td>
-        <td>${salaryBudgetEnvelope > 0 ? app.money(salaryBudgetEnvelope) : "—"}</td>
+        <td>${projectedSalaryEnvelope > 0 ? app.money(projectedSalaryEnvelope) : "—"}</td>
         <td class="${passSalaryEnvelope ? "ok" : "bad"}">${passSalaryEnvelope ? "PASS" : "FAIL"}</td>
         <td>${app.money(cumulativeOffsets)}</td>
         <td>${app.money(netImpactRecurring)}</td>
@@ -118,16 +128,22 @@
     if (cashSummary) cashSummary.style.display = "block";
 
     if (recurringSummary) {
-      recurringSummary.className = `banner ${(anyFailRecurring || anyFailSalaryEnvelope) ? "fail" : "pass"}`;
+      const hasRecurringFlag = anyFailRecurring || anyFailSalaryEnvelope;
+      const failParts = [];
+      if (failYearsRecurring.length) failParts.push(`recurring capacity fails Y${failYearsRecurring.join(", Y")}`);
+      if (failYearsSalaryEnvelope.length) failParts.push(`salary envelope fails Y${failYearsSalaryEnvelope.join(", Y")}`);
+      const failText = failParts.length ? ` — ${failParts.join("; ")}` : "";
+      recurringSummary.className = `banner ${hasRecurringFlag ? "fail" : "pass"}`;
       recurringSummary.innerHTML = `
-        <div><strong>Recurring Affordability: ${(anyFailRecurring || anyFailSalaryEnvelope) ? "FLAGGED in at least one year" : "PASS (all years)"}</strong></div>
-        <div class="soft">Year 1 official budget increase = ${app.money(firstYearIncrease)}. Future years now use cumulative projected budget-growth capacity instead of comparing every year to only one single-year increase. Historical recurring cushion/underbudget default = ${app.money(recurringSurplus)}. Salary-code envelope = ${salaryBudgetEnvelope > 0 ? app.money(salaryBudgetEnvelope) : "not used"}. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
+        <div><strong>Recurring Affordability: ${hasRecurringFlag ? "FLAGGED" : "PASS (all years)"}${failText}</strong></div>
+        <div class="soft">Year 1 official budget increase = ${app.money(firstYearIncrease)}. Future years use cumulative projected budget-growth capacity. Historical recurring cushion/underbudget default = ${app.money(recurringSurplus)}. Salary-code envelope starts at ${salaryBudgetEnvelope > 0 ? app.money(salaryBudgetEnvelope) : "not used"} and grows at ${(salaryEnvelopeGrowthPct * 100).toFixed(2)}%/yr. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
       `;
     }
     if (cashSummary) {
+      const cashFailText = failYearsCash.length ? ` — fails Y${failYearsCash.join(", Y")}` : "";
       cashSummary.className = `banner ${anyFailCash ? "fail" : "pass"}`;
       cashSummary.innerHTML = `
-        <div><strong>Cash Coverage (with one-time): ${anyFailCash ? "FAIL in at least one year" : "PASS (all years)"}</strong></div>
+        <div><strong>Cash Coverage (with one-time): ${anyFailCash ? "FAIL" : "PASS (all years)"}${cashFailText}</strong></div>
         <div class="soft">One-time applied: ${oneTimeMode === "y1" ? "Year 1 only" : "Cumulative spread Y1–Y5"} (${app.money(oneTimeMode === "y1" ? oneTimeFund : oneTimePerYear)}${oneTimeMode === "spread" ? " / yr" : ""}).</div>
       `;
     }

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!--
 Changelog:
@@ -726,6 +727,10 @@ Changelog:
           <input type="number" id="salaryBudgetEnvelope" value="7189767" step="1"/>
           <small class="hint">Default uses the documented teacher salary-code budget from the financial analysis. Salary-envelope test compares salary payroll only, before employer benefit adders.</small>
         </div>
+        <div class="form-group"><label>Salary-Code Budget Envelope Growth (%/yr)</label>
+          <input type="number" id="salaryBudgetEnvelopeGrowthPct" value="1.60" step="0.01"/>
+          <small class="hint">Projects the salary-code envelope forward instead of comparing every future year to the same 2025–26 salary budget. Default matches the 2026–27 budget-to-budget growth.</small>
+        </div>
         <div class="form-group"><label>One-Time Fund Balance Available ($)</label>
           <input type="number" id="oneTimeFund" value="0" step="1"/>
         </div>
@@ -738,7 +743,7 @@ Changelog:
             <option value="spread">Spread evenly Y1–Y5</option>
           </select>
         </div>
-        <div class="soft">This projector now uses three lenses: (1) salary-code budget envelope, (2) cumulative recurring budget-growth capacity, and (3) one-time cash coverage. That avoids falsely failing a proposal just because Year 5 cumulative cost is compared to only one single-year budget increase.</div>
+        <div class="soft">This projector now uses three lenses: (1) projected salary-code budget envelope, (2) cumulative recurring budget-growth capacity, and (3) one-time cash coverage. That avoids falsely failing a proposal just because Year 5 cumulative cost is compared to only one single-year budget increase.</div>
         <div class="soft">One-time fund balance can cover a gap temporarily but does not make recurring costs sustainable. Appropriated fund balance/reserves already built into the proposed budget should not be counted again here.</div>
         <div class="soft">NY context: Districts often track unassigned fund balance (RPTL 1318 4% concept) and may use reserves/appropriated fund balance/transfers per local actions. (General info, not legal advice.)</div>
         <div id="affordabilitySummaryRecurring" class="banner" style="display:none"></div>
@@ -751,7 +756,7 @@ Changelog:
                 <th>Contract Payroll</th>
                 <th>Baseline Payroll</th>
                 <th>Incremental Contract Cost</th>
-                <th>Salary Envelope</th>
+                <th>Projected Salary Envelope</th>
                 <th>Salary Envelope Test</th>
                 <th>Recurring Offsets</th>
                 <th>Net Impact (Recurring)</th>
@@ -893,16 +898,16 @@ Changelog:
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-05-05-budget-realism-v2" defer></script>
-<script src="roster.js?v=2026-05-05-budget-realism-v2" defer></script>
-<script src="affordability.js?v=2026-05-05-budget-realism-v2" defer></script>
-<script src="app.js?v=2026-05-05-budget-realism-v2" defer></script>
+<script src="salary-math.js?v=2026-05-05-budget-realism-v3" defer></script>
+<script src="roster.js?v=2026-05-05-budget-realism-v3" defer></script>
+<script src="affordability.js?v=2026-05-05-budget-realism-v3" defer></script>
+<script src="app.js?v=2026-05-05-budget-realism-v3" defer></script>
 
 <script>
   window.BEE_AI_ENDPOINT =
     "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
-<script src="bee-ai.js?v=2026-05-05-step23-y1" defer></script>
+<script src="bee-ai.js?v=2026-05-05-budget-realism-v3" defer></script>
 
 </body>
 </html>
