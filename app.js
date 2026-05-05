@@ -27,7 +27,7 @@
   })();
 
   // ------------------------------ Constants ------------------------------
-  const BUILD_VERSION = "v0.5.3";
+  const BUILD_VERSION = "v0.5.4-budget-realism";
   const BUILD_TIME = new Date().toLocaleString();
 
   // 2025 premiums (annual)
@@ -262,6 +262,7 @@
       addlRevenue: +document.getElementById("addlRevenue")?.value || 0,
       otherSavings: +document.getElementById("otherSavings")?.value || 0,
       recurringSurplus: +document.getElementById("recurringSurplus")?.value || 0,
+      salaryBudgetEnvelope: +document.getElementById("salaryBudgetEnvelope")?.value || 0,
       oneTimeFund: +document.getElementById("oneTimeFund")?.value || 0,
       reallocPct: +document.getElementById("reallocPct")?.value || 0,
       oneTimeMode: document.getElementById("oneTimeMode")?.value || "y1"
@@ -323,6 +324,7 @@
     setVal("addlRevenue", String(payload.addlRevenue ?? ""));
     setVal("otherSavings", String(payload.otherSavings ?? ""));
     setVal("recurringSurplus", String(payload.recurringSurplus ?? ""));
+    setVal("salaryBudgetEnvelope", String(payload.salaryBudgetEnvelope ?? ""));
     setVal("oneTimeFund", String(payload.oneTimeFund ?? ""));
     setVal("reallocPct", String(payload.reallocPct ?? ""));
     setVal("oneTimeMode", payload.oneTimeMode || "y1");
@@ -1018,6 +1020,7 @@
       const addlRevenue = Number(payload?.addlRevenue || 0) || 0;
       const otherSavings = Number(payload?.otherSavings || 0) || 0;
       const recurringSurplus = Number(payload?.recurringSurplus || 0) || 0;
+      const salaryBudgetEnvelope = Number(payload?.salaryBudgetEnvelope || 0) || 0;
       const oneTimeFund = Number(payload?.oneTimeFund || 0) || 0;
       const reallocPct = clamp(Number(payload?.reallocPct || 0), 0, 100) / 100;
       const oneTimeMode = payload?.oneTimeMode || "y1";
@@ -1028,13 +1031,18 @@
       const stateAidPct = clamp(Number(payload?.stateAidPct || 0), 0, 100) / 100;
       const otherPct = clamp(Number(payload?.otherPct || 0), 0, 1);
 
-      const budgetIncreaseCapacity = Math.max(maxBudgetFlat, budget * maxBudgetPct);
-      const additionalStateAid = budget * stateAidPct;
-      const baseCap =
-        budgetIncreaseCapacity +
-        additionalStateAid +
-        addlRevenue +
-        otherSavings;
+      const firstYearIncrease = maxBudgetFlat > 0 ? maxBudgetFlat : (budget * maxBudgetPct);
+      const additionalStateAidY1 = budget * stateAidPct;
+      const cumulativeBudgetCapacityForYear = (year) => {
+        let projectedBudget = budget;
+        let cumulative = 0;
+        for (let y = 1; y <= year; y += 1) {
+          const inc = y === 1 && maxBudgetFlat > 0 ? maxBudgetFlat : projectedBudget * maxBudgetPct;
+          cumulative += inc;
+          projectedBudget += inc;
+        }
+        return cumulative + (additionalStateAidY1 * year) + (addlRevenue * year) + (otherSavings * year);
+      };
 
       const otherObligations = budget * otherPct;
       const reallocAmount = otherObligations * reallocPct;
@@ -1076,13 +1084,16 @@
         const incremental = contract - baseline;
         const incWithAdders = incremental * (1 + adderPct);
 
-        const netRecurring = incWithAdders - recurringOffsets;
+        const cumulativeBudgetCapacity = cumulativeBudgetCapacityForYear(year);
+        const cumulativeOffsets = recurringOffsets * year;
+        const netRecurring = incWithAdders - cumulativeOffsets;
 
-        const oneTimeApplied = oneTimeMode === "y1" ? (year === 1 ? oneTimeFund : 0) : oneTimePerYear;
-        const netCash = incWithAdders - (recurringOffsets + oneTimeApplied);
+        const oneTimeApplied = oneTimeMode === "y1" ? (year === 1 ? oneTimeFund : 0) : oneTimePerYear * year;
+        const netCash = incWithAdders - (cumulativeOffsets + oneTimeApplied);
 
-        const passRecurring = netRecurring <= baseCap;
-        const passCash = netCash <= baseCap;
+        const passSalaryEnvelope = salaryBudgetEnvelope <= 0 || contract <= salaryBudgetEnvelope;
+        const passRecurring = netRecurring <= cumulativeBudgetCapacity;
+        const passCash = netCash <= cumulativeBudgetCapacity;
 
         if (!passRecurring) anyFailRecurring = true;
         if (!passCash) anyFailCash = true;
@@ -1092,11 +1103,13 @@
           contract,
           baseline,
           incWithAdders,
-          recurringOffsets,
+          salaryBudgetEnvelope,
+          passSalaryEnvelope,
+          recurringOffsets: cumulativeOffsets,
           oneTimeApplied,
           netRecurring,
           netCash,
-          baseCap,
+          baseCap: cumulativeBudgetCapacity,
           passRecurring,
           passCash
         });
@@ -1109,8 +1122,9 @@
           budget,
           maxBudgetFlat,
           maxBudgetPct,
-          budgetIncreaseCapacity,
-          additionalStateAid,
+          budgetIncreaseCapacity: firstYearIncrease,
+          additionalStateAid: additionalStateAidY1,
+          salaryBudgetEnvelope,
           stateAidPct,
           otherPct,
           addlRevenue,
@@ -1121,7 +1135,7 @@
           oneTimeMode
         },
         derived: {
-          baseCap,
+          baseCap: cumulativeBudgetCapacityForYear(5),
           recurringOffsets,
           anyFailRecurring,
           anyFailCash
@@ -1322,7 +1336,8 @@
           ["Adders (% on incremental)", `${Number(bi.adderPct || 0).toFixed(2)}%`],
           ["Additional revenue", money(bi.addlRevenue || 0)],
           ["Other savings", money(bi.otherSavings || 0)],
-          ["Recurring surplus", money(bi.recurringSurplus || 0)],
+          ["Historical recurring cushion", money(bi.recurringSurplus || 0)],
+          ["Salary-code envelope", money(bi.salaryBudgetEnvelope || 0)],
           ["Realloc (% of other obligations)", `${Number(bi.reallocPct || 0).toFixed(2)}%`],
           ["One-time fund", money(bi.oneTimeFund || 0)],
           ["One-time mode", String(bi.oneTimeMode || "y1")]
@@ -1334,20 +1349,21 @@
       const aff = rosterTotalsForScenario(sc.payload);
       p("Affordability (roster-based):");
       table(
-        ["Year", "Contract", "Baseline", "Inc+Adders", "Offsets", "Net Recurring", "Cap", "PASS?"],
+        ["Year", "Contract", "Salary Env", "Env", "Inc+Adders", "Offsets", "Net Recurring", "Cum. Cap", "PASS?"],
         aff.rows.map((r) => [
           `Y${r.year}`,
           money(r.contract),
-          money(r.baseline),
+          money(r.salaryBudgetEnvelope),
+          r.passSalaryEnvelope ? "PASS" : "FAIL",
           money(r.incWithAdders),
           money(r.recurringOffsets),
           money(r.netRecurring),
           money(r.baseCap),
           r.passRecurring ? "PASS" : "FAIL"
         ]),
-        [36, 72, 72, 72, 60, 70, 60, 40]
+        [32, 62, 62, 34, 62, 58, 62, 58, 38]
       );
-      p(`Recurring result: ${aff.derived.anyFailRecurring ? "FAIL (at least one year)" : "PASS (all years)"} — Base cap/yr ${money(aff.derived.baseCap)}; recurring offsets/yr ${money(aff.derived.recurringOffsets)}.`);
+      p(`Recurring result: ${aff.derived.anyFailRecurring ? "FAIL (at least one year)" : "PASS (all years)"} — cumulative Year 5 budget-growth capacity ${money(aff.derived.baseCap)}; annual recurring cushion ${money(aff.derived.recurringOffsets)}.`);
 
       table(
         ["Year", "Net Cash (one-time applied)", "One-time applied", "PASS?"],
@@ -1614,7 +1630,7 @@
       "year1","year2","year3","year4","year5",
       "flat1","flat2","flat3","flat4","flat5",
       "adderPct","otherPct","budget","maxBudgetPct","maxBudgetFlat",
-      "stateAidPct","addlRevenue","otherSavings","recurringSurplus",
+      "stateAidPct","addlRevenue","otherSavings","recurringSurplus","salaryBudgetEnvelope",
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",
