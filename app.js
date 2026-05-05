@@ -396,6 +396,7 @@
 
   // ------------------------------ Schedule Builders ------------------------------
   const isStep23Enabled = () => !!document.getElementById("toggleStep23")?.checked;
+  const isStep23Year1AllEnabled = () => isStep23Enabled() && !!document.getElementById("toggleStep23Year1All")?.checked;
 
   const buildSchedules = (params) => {
     const schedules = [];
@@ -449,10 +450,11 @@
     if (typeof sm.stepForYear === "function") return sm.stepForYear(baseStep, year, options);
     const enabled = isStep23Enabled();
     const eligible = !!options?.step23Year1Eligible;
+    const allYear1 = isStep23Year1AllEnabled();
     let current = clamp(baseStep, 1, enabled ? 23 : 22);
     if (!enabled && current > 22) current = 22;
     if (year <= 0) return current;
-    current = enabled && (current >= 23 || eligible) ? 23 : Math.min(current, 22);
+    current = enabled && (current >= 23 || eligible || (allYear1 && current >= 22)) ? 23 : Math.min(current, 22);
     if (year === 1) return current;
     for (let y = 2; y <= year; y += 1) {
       if (enabled) current = current >= 22 ? 23 : current + 1;
@@ -1577,6 +1579,14 @@
         generateSalaryTable({ mode: "inline" });
       }
     });
+    safeAddListener("toggleStep23Year1All", "change", () => {
+      updateRosterDisplayFromToggles();
+      window.BtaAffordability?.computeAffordability?.();
+      const renderArea = document.getElementById("renderArea");
+      if (renderArea && renderArea.children && renderArea.children.length) {
+        generateSalaryTable({ mode: "inline" });
+      }
+    });
 
     // Filter: Steps w/ roster only (affects generation)
     safeAddListener("showRosterStepsOnly", "change", () => {
@@ -1604,7 +1614,7 @@
       "oneTimeFund","reallocPct","oneTimeMode",
       "contributionY1","contributionY2","contributionY3","contributionY4","contributionY5",
       "hiFlatY1","hiFlatY2","hiFlatY3","hiFlatY4","hiFlatY5",
-      "netPremiumFamily","netPremiumIndividual","toggleStep23"
+      "netPremiumFamily","netPremiumIndividual","toggleStep23","toggleStep23Year1All"
     ];
 
     watchIds.forEach((id) => {
