@@ -1,17 +1,19 @@
 (() => {
   const hasStep23Enabled = () => (typeof document !== "undefined") && !!document.getElementById("toggleStep23")?.checked;
+  const hasStep23Year1AllEnabled = () => hasStep23Enabled() && (typeof document !== "undefined") && !!document.getElementById("toggleStep23Year1All")?.checked;
 
   const maxStep = () => (hasStep23Enabled() ? 23 : 22);
 
   const stepForYear = (baseStep, yearIdx, options = {}) => {
     const enabled = hasStep23Enabled();
     const eligible = !!options?.step23Year1Eligible;
+    const allYear1 = hasStep23Year1AllEnabled();
     let current = Math.max(1, Math.min(enabled ? 23 : 22, Number(baseStep) || 1));
     if (!enabled && current > 22) current = 22;
 
     if ((yearIdx | 0) <= 0) return current;
 
-    current = enabled && (current >= 23 || eligible) ? 23 : Math.min(current, 22);
+    current = enabled && (current >= 23 || eligible || (allYear1 && current >= 22)) ? 23 : Math.min(current, 22);
     if ((yearIdx | 0) === 1) return current;
 
     for (let y = 2; y <= (yearIdx | 0); y += 1) {
