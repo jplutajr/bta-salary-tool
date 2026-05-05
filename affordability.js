@@ -22,7 +22,9 @@
     const stateAidPct = app.clamp(+document.getElementById("stateAidPct")?.value || 0, 0, 100) / 100;
     const otherPct = app.clamp(+document.getElementById("otherPct")?.value || 0, 0, 1);
 
-    const baseCap = Math.max(maxBudgetFlat, budget * maxBudgetPct) + budget * stateAidPct + addlRevenue + otherSavings;
+    const budgetIncreaseCapacity = Math.max(maxBudgetFlat, budget * maxBudgetPct);
+    const additionalStateAid = budget * stateAidPct;
+    const baseCap = budgetIncreaseCapacity + additionalStateAid + addlRevenue + otherSavings;
     const otherObligations = budget * otherPct;
     const reallocAmount = otherObligations * reallocPct;
     const recurringOffsets = recurringSurplus + reallocAmount;
@@ -40,7 +42,7 @@
     const rosterPayrollForYear = (year) => {
       let total = 0;
       roster.forEach((entry) => {
-        const stepY = app.stepForYear(entry.Step, year);
+        const stepY = app.stepForYear(entry.Step, year, { step23Year1Eligible: !!entry.Step23Year1Eligible });
         const value = app.salaryAt(schedules, year, stepY, entry.Column);
         if (value == null) return;
         total += value * (entry.FTE || 1);
@@ -51,7 +53,10 @@
     const rosterBaselineForYear = (year) => {
       let total = 0;
       roster.forEach((entry) => {
-        const stepY = app.stepForYear(entry.Step, year);
+        // Baseline should stay on the normal capped Year 0 table, not the proposal Step 23 table.
+        const stepY = typeof app.baselineStepForYear === "function"
+          ? app.baselineStepForYear(entry, year)
+          : Math.max(1, Math.min(22, (Number(entry.Step) || 1) + Math.max(0, year - 1)));
         const value = schedules0?.[stepY]?.[rosterTools?.normScale?.(entry.Column) || entry.Column];
         if (value == null) return;
         total += value * (entry.FTE || 1);
@@ -98,7 +103,7 @@
       recurringSummary.className = `banner ${anyFailRecurring ? "fail" : "pass"}`;
       recurringSummary.innerHTML = `
         <div><strong>Recurring Affordability: ${anyFailRecurring ? "FAIL in at least one year" : "PASS (all years)"}</strong></div>
-        <div class="soft">Base cap/yr = ${app.money(baseCap)} (cap + state aid + addl/other). Recurring offsets/yr = ${app.money(recurringOffsets)}. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
+        <div class="soft">Available new spend/yr = ${app.money(baseCap)} (budget increase ${app.money(budgetIncreaseCapacity)} + extra state aid ${app.money(additionalStateAid)} + addl/other). Recurring offsets/yr = ${app.money(recurringOffsets)}. Adders = ${(adderPct * 100).toFixed(1)}%.</div>
       `;
     }
     if (cashSummary) {
