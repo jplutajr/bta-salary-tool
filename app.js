@@ -1028,9 +1028,11 @@
       const stateAidPct = clamp(Number(payload?.stateAidPct || 0), 0, 100) / 100;
       const otherPct = clamp(Number(payload?.otherPct || 0), 0, 1);
 
+      const budgetIncreaseCapacity = Math.max(maxBudgetFlat, budget * maxBudgetPct);
+      const additionalStateAid = budget * stateAidPct;
       const baseCap =
-        Math.max(maxBudgetFlat, budget * maxBudgetPct) +
-        budget * stateAidPct +
+        budgetIncreaseCapacity +
+        additionalStateAid +
         addlRevenue +
         otherSavings;
 
@@ -1107,6 +1109,8 @@
           budget,
           maxBudgetFlat,
           maxBudgetPct,
+          budgetIncreaseCapacity,
+          additionalStateAid,
           stateAidPct,
           otherPct,
           addlRevenue,
