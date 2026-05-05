@@ -359,7 +359,7 @@ Changelog:
   </div>
   <div id="validationBanner" class="banner" style="display:none"></div>
 
-  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong> by default. If “Enable Step 23” is checked, the cleaned-roster year-1 Step 23 placements are honored, and then prior-year Step 22 staff move to Step 23 in the following year. Health-insurance views use 2026 annual premiums.</p>
+  <p class="hint">Year 0 and Year 1 keep the same step. Year 2+ advances +1 per year up to step <strong>22</strong> by default. If “Enable Step 23” is checked, the cleaned-roster year-1 Step 23 placements are honored, and then prior-year Step 22 staff move to Step 23 in the following year. The optional Year 1 Step 23 checkbox lets you model all Step 22 staff moving to Step 23 immediately. Health-insurance views use 2026 annual premiums.</p>
   <div id="appLoadError" class="app-error" style="display:none;">
     <div class="app-error-title">App failed to load</div>
     <div id="appLoadErrorMsg" class="app-error-msg">
@@ -647,6 +647,10 @@ Changelog:
             <input type="checkbox" id="toggleStep23"/>
             Enable Step 23 (+1.5% over Step 22)
           </label>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" id="toggleStep23Year1All"/>
+            Apply Step 23 to all Step 22 staff in Year 1
+          </label>
         </div>
         <div class="row">
           <label style="display:flex;gap:8px;align-items:center;font-weight:600">
@@ -755,7 +759,7 @@ Changelog:
 
   <div class="roster-card">
     <h3>Live Roster</h3>
-    <p class="hint">Columns: <strong>Name</strong>, <strong>Step</strong>, <strong>Column</strong>, <strong>FTE</strong>. The default roster includes the year-1 Step 23 placements from the cleaned roster. When Step 23 is enabled, those staff show as Step 23 in Year 1, and anyone at Step 22 in a prior year moves to Step 23 in the following year.</p>
+    <p class="hint">Columns: <strong>Name</strong>, <strong>Step</strong>, <strong>Column</strong>, <strong>FTE</strong>. The default roster includes the year-1 Step 23 placements from the cleaned roster. When Step 23 is enabled, those staff show as Step 23 in Year 1, and anyone at Step 22 in a prior year moves to Step 23 in the following year. If “Apply Step 23 to all Step 22 staff in Year 1” is checked, every Step 22 staff member is modeled at Step 23 immediately in Year 1.</p>
 
 <textarea id="embeddedRoster" style="display:none">Name,Step,Column,FTE
 "AIELLO, PATRICK",16,M50,1.0
@@ -872,23 +876,23 @@ Changelog:
       <button type="button" id="exportCsvBtn">Export Updated Roster (CSV)</button>
       <button type="button" id="exportXlsxBtn">Export All Years in Range (XLSX)</button>
     </div>
-    <small class="hint">Exports preserve Name/Step/Column/FTE and add a <strong>Salary</strong> column (FTE-adjusted). If Step 23 is enabled, the cleaned-roster year-1 Step 23 placements are honored, and later years move prior-year Step 22 staff to Step 23.</small>
+    <small class="hint">Exports preserve Name/Step/Column/FTE and add a <strong>Salary</strong> column (FTE-adjusted). If Step 23 is enabled, the cleaned-roster year-1 Step 23 placements are honored, and later years move prior-year Step 22 staff to Step 23. If the Year 1 Step 23 checkbox is checked, all Step 22 staff are moved to Step 23 in Year 1.</small>
     <small class="hint">Gross salary exported (FTE-adjusted). Uses selected scenario’s raise parameters.</small>
   </div>
 
   <div id="renderArea"></div>
 </div>
 
-<script src="salary-math.js?v=2026-05-01-2" defer></script>
-<script src="roster.js?v=2026-05-01-2" defer></script>
-<script src="affordability.js?v=2026-05-01-2" defer></script>
-<script src="app.js?v=2026-05-01-2" defer></script>
+<script src="salary-math.js?v=2026-05-05-step23-y1" defer></script>
+<script src="roster.js?v=2026-05-05-step23-y1" defer></script>
+<script src="affordability.js?v=2026-05-05-step23-y1" defer></script>
+<script src="app.js?v=2026-05-05-step23-y1" defer></script>
 
 <script>
   window.BEE_AI_ENDPOINT =
     "https://gemini-rag-chatbot-m6qcajeezq-uc.a.run.app/ask";
 </script>
-<script src="bee-ai.js?v=2026-05-01-2" defer></script>
+<script src="bee-ai.js?v=2026-05-05-step23-y1" defer></script>
 
 </body>
 </html>
