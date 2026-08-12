@@ -295,7 +295,7 @@
         const b = scheduleB ? app.salaryAt(scheduleB, year, stepY, entry.Column) : null;
         return [
           entry.Name,
-          entry.Step,
+          stepY,
           entry.Column,
           entry.FTE,
           a == null ? "" : (a * (entry.FTE || 1)).toFixed(2),
@@ -310,7 +310,7 @@
         const value = schedules ? app.salaryAt(schedules, year, stepY, entry.Column) : null;
         return [
           entry.Name,
-          entry.Step,
+          stepY,
           entry.Column,
           entry.FTE,
           value == null ? "" : (value * (entry.FTE || 1)).toFixed(2)
